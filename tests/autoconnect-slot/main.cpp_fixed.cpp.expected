@@ -1,0 +1,45 @@
+#include <QtCore/QObject>
+#include "ui_widget.h"
+
+class MyObject : public QWidget, private Ui::Widget
+{
+    Q_OBJECT
+public:
+    MyObject()
+    {
+      setupUi( this );
+connect( mButton, &QPushButton::clicked, this, &MyObject::mButton_clicked );
+connect( button, &QPushButton::clicked, this, &MyObject::button_clicked );
+connect( mButton, &QPushButton::pressed, this, &MyObject::mButton_pressed );
+connect( mButton, &QPushButton::released, this, &MyObject::mButton_released );
+    }
+    bool on_mButton_something(); // No warn
+
+public Q_SLOTS:
+    void slot1() const {} // No warn
+    void slot2_something() {} // No warn
+    void slot3_something_(); // No warn
+    void mButton_clicked(); // Warn
+    void button_clicked(); // Warn
+    void mButton_pressed(); // Warn
+    void mButton_released() {} // Warn
+    void on_mButton(); // No warn
+    void on_notButton_clicked(); // No warn
+    void on_mDouble_clicked(); // No warn - not a widget
+
+  private:
+
+    double mDouble;
+    QPushButton* button;
+
+};
+
+void MyObject::mButton_pressed() // OK, already warned
+{
+
+}
+
+void test()
+{
+    MyObject o;
+}
