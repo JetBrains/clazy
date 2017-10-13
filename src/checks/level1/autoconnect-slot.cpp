@@ -27,6 +27,7 @@
 #include "AccessSpecifierManager.h"
 #include "FixItUtils.h"
 #include "StringUtils.h"
+
 #include <regex>
 
 enum Fixit
@@ -70,18 +71,15 @@ void AutoConnectSlot::VisitDecl(clang::Decl *decl)
     std::string signalName = match[2].str();
 
     clang::CXXRecordDecl *record = method->getParent();
-    if (clang::FieldDecl *field = getClassMember(record, objectName))
-    {
+    if (clang::FieldDecl *field = getClassMember(record, objectName)) {
         clang::QualType type = field->getType();
-        if (QtUtils::isQObject(type))
-        {
+        if (QtUtils::isQObject(type)) {
             std::string objectTypeName = StringUtils::simpleTypeName(TypeUtils::pointeeQualType(type), lo());
 
             std::vector<clang::FixItHint> fixits;
             if (isFixitEnabled(FixItConnects))
-            {
                 fixIts(objectName, signalName, objectTypeName, record, method, fixits);
-            }
+
             emitWarning(decl->getLocStart(), "Use of autoconnected UI slot: " + name, fixits);
         }
     }
@@ -97,14 +95,11 @@ void AutoConnectSlot::fixIts(const std::string &objectName, const std::string &s
     fixits.push_back(fixit);
 
     // don't add duplicate connects
-    if (!(method->isThisDeclarationADefinition() && !method->hasInlineBody()))
-    {
+    if (!(method->isThisDeclarationADefinition() && !method->hasInlineBody())) {
         std::string newConnect = "connect( " + objectName + ", &" + objectTypeName + "::" + signalName + ", this, &" + record->getNameAsString() + "::" + newName + " );";
-        for (clang::CXXMethodDecl *baseMethod : record->methods())
-        {
+        for (clang::CXXMethodDecl *baseMethod : record->methods()) {
             StmtBodyRange bodyRange(baseMethod->getBody());
-            if (clang::CallExpr *setupCall = findSetupUi(bodyRange))
-            {
+            if (clang::CallExpr *setupCall = findSetupUi(bodyRange)) {
                 // hack    - use getLocWithOffset to skip ");"
                 clang::FixItHint connectHint = FixItUtils::createInsertion(setupCall->getLocEnd().getLocWithOffset(2), "\n" + newConnect);
                 fixits.push_back(connectHint);
@@ -121,8 +116,7 @@ clang::CallExpr *AutoConnectSlot::findSetupUi(const StmtBodyRange &bodyRange)
     clang::Stmt *body = bodyRange.body;
     std::vector<clang::CallExpr *> callExprs;
     HierarchyUtils::getChilds<clang::CallExpr>(body, callExprs);
-    for (clang::CallExpr *callexpr : callExprs)
-    {
+    for (clang::CallExpr *callexpr : callExprs) {
         if (bodyRange.isOutsideRange(callexpr))
             continue;
 
@@ -133,6 +127,7 @@ clang::CallExpr *AutoConnectSlot::findSetupUi(const StmtBodyRange &bodyRange)
         if (fDecl->getNameAsString() == "setupUi")
             return callexpr;
     }
+
     return nullptr;
 }
 
@@ -141,20 +136,16 @@ clang::FieldDecl *AutoConnectSlot::getClassMember(clang::CXXRecordDecl *record, 
     if (!record)
         return nullptr;
 
-    for (auto field : record->fields())
-    {
+    for (auto field : record->fields()) {
         if (field->getNameAsString() == memberName)
             return field;
     }
 
     // Also include the base classes
-    for (const auto &base : record->bases())
-    {
+    for (const auto &base : record->bases()) {
         clang::CXXRecordDecl *baseRecord = TypeUtils::recordFromBaseSpecifier(base);
         if (clang::FieldDecl *field = getClassMember(baseRecord, memberName))
-        {
             return field;
-        }
     }
 
     return nullptr;
