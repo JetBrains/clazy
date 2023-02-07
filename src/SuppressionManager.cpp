@@ -82,7 +82,7 @@ void SuppressionManager::parseFile(FileID id, const SourceManager &sm, const cla
     auto it = m_processedFileIDs.insert({hash, Suppressions()}).first;
     Suppressions &suppressions = (*it).second;
 
-    auto buffer = sm.getBufferOrFake(id);
+    std::optional buffer = sm.getBufferOrFake(id);
 
     auto lexer = GET_LEXER(id, buffer, sm, lo);
     lexer.SetCommentRetentionState(true);
