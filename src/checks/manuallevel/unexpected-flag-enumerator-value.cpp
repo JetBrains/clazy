@@ -61,8 +61,14 @@ static bool isIntentionallyNotPowerOf2(EnumConstantDecl *en) {
     if (val.isMask() && val.countTrailingOnes() >= MinOnesToQualifyAsMask)
         return true;
 
+#if LLVM_VERSION_MAJOR >= 17
+    if (val.isShiftedMask() && val.popcount() >= MinOnesToQualifyAsMask) {
+      return true;
+    }
+#else
     if (val.isShiftedMask() && val.countPopulation() >= MinOnesToQualifyAsMask)
         return true;
+#endif
 
     if (clazy::contains_lower(en->getName(), "mask"))
         return true;
@@ -158,7 +164,11 @@ void UnexpectedFlagEnumeratorValue::VisitDecl(clang::Decl *decl)
 
     for (EnumConstantDecl* enumerator : enumerators) {
         const auto &initVal = enumerator->getInitVal();
+#if LLVM_VERSION_MAJOR >= 17
+        if (!initVal.isPowerOf2() && !initVal.isZero() && !initVal.isNegative()) {
+#else
         if (!initVal.isPowerOf2() && !initVal.isNullValue() && !initVal.isNegative()) {
+#endif
             if (isIntentionallyNotPowerOf2(enumerator))
                 continue;
             const auto value = enumerator->getInitVal().getLimitedValue();
