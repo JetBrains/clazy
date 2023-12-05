@@ -24,7 +24,6 @@
 #include "clazy_stl.h"
 
 #include <clang/Basic/SourceManager.h>
-#include <clang/Lex/Lexer.h>
 #include <clang/Basic/SourceLocation.h>
 #include <clang/Basic/TokenKinds.h>
 #include <clang/Lex/Token.h>
@@ -83,10 +82,9 @@ void SuppressionManager::parseFile(FileID id, const SourceManager &sm, const cla
     auto it = m_processedFileIDs.insert({hash, Suppressions()}).first;
     Suppressions &suppressions = (*it).second;
 
-    bool invalid = false;
     auto buffer = sm.getBufferOrFake(id);
 
-    Lexer lexer(id, buffer, sm, lo);
+    auto lexer = GET_LEXER(id, buffer, sm, lo);
     lexer.SetCommentRetentionState(true);
 
     Token token;

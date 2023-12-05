@@ -4,7 +4,6 @@ set(CLAZY_CHECKS_SRCS ${CLAZY_CHECKS_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/detaching-member.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/heap-allocated-small-trivial-type.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/ifndef-define-typo.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/inefficient-qlist.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/isempty-vs-count.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/jnisignatures.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qhash-with-char-pointer-key.cpp
@@ -14,6 +13,7 @@ set(CLAZY_CHECKS_SRCS ${CLAZY_CHECKS_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qt-keywords.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qt4-qstring-from-array.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qt6-deprecated-api-fixes.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qt6-fwd-fixes.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qt6-header-fixes.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qt6-qhash-signature.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/qt6-qlatin1stringchar-to-u.cpp
@@ -23,7 +23,9 @@ set(CLAZY_CHECKS_SRCS ${CLAZY_CHECKS_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/signal-with-return-value.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/thread-with-slots.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/tr-non-literal.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/unexpected-flag-enumerator-value.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/unneeded-cast.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/use-arrow-operator-instead-of-data.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/manuallevel/use-chrono-in-qtimer.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/connect-by-name.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/connect-non-signal.cpp
@@ -50,6 +52,7 @@ set(CLAZY_CHECKS_SRCS ${CLAZY_CHECKS_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/strict-iterators.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/temporary-iterator.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/unused-non-trivial-variable.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/use-static-qregularexpression.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/writing-to-temporary.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/wrong-qevent-cast.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level0/wrong-qglobalstatic.cpp
@@ -60,7 +63,6 @@ set(CLAZY_CHECKS_SRCS ${CLAZY_CHECKS_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/detaching-temporary.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/foreach.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/incorrect-emit.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/inefficient-qlist-soft.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/install-event-filter.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/non-pod-global-static.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/overridden-signal.cpp
@@ -70,7 +72,8 @@ set(CLAZY_CHECKS_SRCS ${CLAZY_CHECKS_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/qlatin1string-non-ascii.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/qproperty-without-notify.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/qstring-left.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/range-loop.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/range-loop-detach.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/range-loop-reference.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/returning-data-from-temporary.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/rule-of-two-soft.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/checks/level1/skipped-base-method.cpp

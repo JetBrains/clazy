@@ -4,7 +4,6 @@ SET(README_manuallevel_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-detaching-member.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-heap-allocated-small-trivial-type.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-ifndef-define-typo.md
-    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-inefficient-qlist.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-isempty-vs-count.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-jni-signatures.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qhash-with-char-pointer-key.md
@@ -14,6 +13,7 @@ SET(README_manuallevel_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt-keywords.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt4-qstring-from-array.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-deprecated-api-fixes.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-fwd-fixes.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-header-fixes.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-qhash-signature.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-qlatin1stringchar-to-u.md
@@ -23,7 +23,9 @@ SET(README_manuallevel_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-signal-with-return-value.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-thread-with-slots.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-tr-non-literal.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-unexpected-flag-enumerator-value.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-unneeded-cast.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-use-arrow-operator-instead-of-data.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-use-chrono-in-qtimer.md
 )
 
@@ -53,6 +55,7 @@ SET(README_LEVEL0_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-strict-iterators.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-temporary-iterator.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-unused-non-trivial-variable.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-use-static-qregularexpression.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-writing-to-temporary.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-wrong-qevent-cast.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-wrong-qglobalstatic.md
@@ -66,7 +69,6 @@ SET(README_LEVEL1_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-detaching-temporary.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-foreach.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-incorrect-emit.md
-    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-inefficient-qlist-soft.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-install-event-filter.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-non-pod-global-static.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-overridden-signal.md
@@ -76,7 +78,8 @@ SET(README_LEVEL1_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qlatin1string-non-ascii.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qproperty-without-notify.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qstring-left.md
-    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-range-loop.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-range-loop-detach.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-range-loop-reference.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-returning-data-from-temporary.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-rule-of-two-soft.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-skipped-base-method.md

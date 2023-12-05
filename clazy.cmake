@@ -6,7 +6,7 @@ sharedir=$("@READLINK_CMD@" -f "$(dirname ${0})/@BIN_RELATIVE_SHAREDIR@")
 HELP() {
   echo "Usage: `basename $0` [options] [clang++-options]"
   echo
-  echo "Static analyzer for C++/Qt code (https://phabricator.kde.org/source/clazy)"
+  echo "Static analyzer for C++/Qt code (https://invent.kde.org/sdk/clazy)"
   echo
   echo "Options:"
   echo "  --help             print program help"
@@ -28,6 +28,9 @@ HELP() {
   echo "All other options are passed directly to clang++ and handled from there."
   echo
   echo "See the clang++ manual for a list of the very large set of options available"
+  echo
+  echo "Environment Variables:"
+  echo "  CLANGXX            Path to the clang++ executable to use"
   echo
 }
 

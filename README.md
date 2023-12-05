@@ -1,6 +1,4 @@
-*WARNING:* master is the development branch. Please use the v1.8 branch.
-
-clazy v1.9
+clazy v1.11
 ===========
 
 clazy is a compiler plugin which allows clang to understand Qt semantics. You get more than 50 Qt related compiler warnings, ranging from unneeded memory allocations to misusage of API, including fix-its for automatic refactoring.
@@ -45,6 +43,13 @@ You can get clazy from:
 - <https://github.com/KDE/clazy>
 - <https://invent.kde.org/sdk/clazy>
 
+
+# Supported platforms
+
+Clazy has been tested on Linux, macOS and Windows/MSVC.
+Other platforms are not supported but we'll gladly accept patches.
+
+
 # Pre-built binaries
 
 Pre-built clazy binaries for MSVC and Linux AppImage are produced by KDAB, you can get them from https://downloads.kdab.com/clazy/.
@@ -60,7 +65,7 @@ Pre-built clazy binaries for MSVC and Linux AppImage are produced by KDAB, you c
 - Other distros: Check llvm/clang build docs.
 
 ### Build and install clang
-clang and LLVM >= 7.0 are required.
+clang and LLVM >= 8.0 are required.
 
 If your distro provides clang then you can skip this step.
 
@@ -123,9 +128,9 @@ Be sure to point CLANG_LIBRARY_IMPORT to clang.lib. It's probably inside your LL
 
 ### Install clang
 ```
-$ sudo port install llvm-8.0 clang-8.0 cmake ninja coreutils
-$ sudo ln -sf /opt/local/bin/llvm-config-mp-8.0 /opt/local/bin/llvm-config
-$ sudo port select --set clang mp-clang-8.0
+$ sudo port install llvm-11 clang-11 cmake ninja coreutils
+$ sudo ln -sf /opt/local/bin/llvm-config-mp-11 /opt/local/bin/llvm-config
+$ sudo port select --set clang mp-clang-11
 ```
 
 ### Build clazy
@@ -180,9 +185,9 @@ Compile your programs with it instead of clang++/g++.
 Note that this command is just a convenience wrapper which calls:
 `clang++ -Xclang -load -Xclang ClazyPlugin.so -Xclang -add-plugin -Xclang clazy`
 
-If you have multiple versions of clang installed (say clang++-3.8 and clang++-3.9)
+If you have multiple versions of clang installed (say clang++-10 and clang++-11)
 you can choose which one to use by setting the CLANGXX environment variable, like so:
-`export CLANGXX=clang++-3.8; clazy`
+`export CLANGXX=clang++-11; clazy`
 
 To build a CMake project use:
  `cmake . -DCMAKE_CXX_COMPILER=clazy`
@@ -220,7 +225,6 @@ clazy runs all checks from level1 by default.
     - [detaching-member](docs/checks/README-detaching-member.md)
     - [heap-allocated-small-trivial-type](docs/checks/README-heap-allocated-small-trivial-type.md)
     - [ifndef-define-typo](docs/checks/README-ifndef-define-typo.md)
-    - [inefficient-qlist](docs/checks/README-inefficient-qlist.md)
     - [isempty-vs-count](docs/checks/README-isempty-vs-count.md)
     - [jni-signatures](docs/checks/README-jni-signatures.md)
     - [qhash-with-char-pointer-key](docs/checks/README-qhash-with-char-pointer-key.md)
@@ -230,6 +234,7 @@ clazy runs all checks from level1 by default.
     - [qt-keywords](docs/checks/README-qt-keywords.md)    (fix-qt-keywords)
     - [qt4-qstring-from-array](docs/checks/README-qt4-qstring-from-array.md)    (fix-qt4-qstring-from-array)
     - [qt6-deprecated-api-fixes](docs/checks/README-qt6-deprecated-api-fixes.md)    (fix-qt6-deprecated-api-fixes)
+    - [qt6-fwd-fixes](docs/checks/README-qt6-fwd-fixes.md)    (fix-qt6-fwd-fixes)
     - [qt6-header-fixes](docs/checks/README-qt6-header-fixes.md)    (fix-qt6-header-fixes)
     - [qt6-qhash-signature](docs/checks/README-qt6-qhash-signature.md)    (fix-qt6-qhash-signature)
     - [qt6-qlatin1stringchar-to-u](docs/checks/README-qt6-qlatin1stringchar-to-u.md)    (fix-qt6-qlatin1stringchar-to-u)
@@ -239,7 +244,9 @@ clazy runs all checks from level1 by default.
     - [signal-with-return-value](docs/checks/README-signal-with-return-value.md)
     - [thread-with-slots](docs/checks/README-thread-with-slots.md)
     - [tr-non-literal](docs/checks/README-tr-non-literal.md)
+    - [unexpected-flag-enumerator-value](docs/checks/README-unexpected-flag-enumerator-value.md)
     - [unneeded-cast](docs/checks/README-unneeded-cast.md)
+    - [use-arrow-operator-instead-of-data](docs/checks/README-use-arrow-operator-instead-of-data.md)
     - [use-chrono-in-qtimer](docs/checks/README-use-chrono-in-qtimer.md)
 
 - Checks from Level 0:
@@ -268,6 +275,7 @@ clazy runs all checks from level1 by default.
     - [strict-iterators](docs/checks/README-strict-iterators.md)
     - [temporary-iterator](docs/checks/README-temporary-iterator.md)
     - [unused-non-trivial-variable](docs/checks/README-unused-non-trivial-variable.md)
+    - [use-static-qregularexpression](docs/checks/README-use-static-qregularexpression.md)
     - [writing-to-temporary](docs/checks/README-writing-to-temporary.md)
     - [wrong-qevent-cast](docs/checks/README-wrong-qevent-cast.md)
     - [wrong-qglobalstatic](docs/checks/README-wrong-qglobalstatic.md)
@@ -280,7 +288,6 @@ clazy runs all checks from level1 by default.
     - [detaching-temporary](docs/checks/README-detaching-temporary.md)
     - [foreach](docs/checks/README-foreach.md)
     - [incorrect-emit](docs/checks/README-incorrect-emit.md)
-    - [inefficient-qlist-soft](docs/checks/README-inefficient-qlist-soft.md)
     - [install-event-filter](docs/checks/README-install-event-filter.md)
     - [non-pod-global-static](docs/checks/README-non-pod-global-static.md)
     - [overridden-signal](docs/checks/README-overridden-signal.md)
@@ -290,7 +297,8 @@ clazy runs all checks from level1 by default.
     - [qlatin1string-non-ascii](docs/checks/README-qlatin1string-non-ascii.md)
     - [qproperty-without-notify](docs/checks/README-qproperty-without-notify.md)
     - [qstring-left](docs/checks/README-qstring-left.md)
-    - [range-loop](docs/checks/README-range-loop.md)    (fix-range-loop-add-ref,fix-range-loop-add-qasconst)
+    - [range-loop-detach](docs/checks/README-range-loop-detach.md)    (fix-range-loop-add-qasconst)
+    - [range-loop-reference](docs/checks/README-range-loop-reference.md)    (fix-range-loop-add-ref)
     - [returning-data-from-temporary](docs/checks/README-returning-data-from-temporary.md)
     - [rule-of-two-soft](docs/checks/README-rule-of-two-soft.md)
     - [skipped-base-method](docs/checks/README-skipped-base-method.md)
@@ -462,8 +470,18 @@ Don't include the `clazy-` prefix. If, for example, you want to disable qstring-
 # Reporting bugs and wishes
 
 - bug tracker: <https://bugs.kde.org/enter_bug.cgi?product=clazy>
-- IRC: #kde-clazy (freenode)
+- IRC: #kde-clazy (irc.libera.chat)
 - E-mail: <smartins at kde.org>
+
+When reporting a bug *please* include a minimal compilable testcase. No matter
+how simple it is, it saves me time from deciphering a bug report. Time spent
+doing triaging is time not spent writing fixes.
+
+A minimal testcase is also something I can copy to the test suite.
+
+Make sure you can reproduce with clazy (outside of QtCreator), otherwise it can be a QtCreator bug instead,
+which you can report at <https://bugreports.qt.io/>.
+
 
 # Authors
 
@@ -484,6 +502,8 @@ with contributions from:
 - Nikolai Kosjar
 - Jesper K. Pedersen
 - Lucie Gerard
+- Christian Schärf
+- Waqar Ahmed
 
 qt6-* porting checks written by Lucie Gerard <lucie.gerard@qt.io>
 
@@ -494,7 +514,7 @@ and thanks to:
 
 # Contributing patches
 
-New features go to master and bug fixes go to the 1.8 branch.
+New features go to master and bug fixes go to the 1.11 branch.
 The prefered way to contributing is by using KDE's GitLab instance,
 see <https://community.kde.org/Infrastructure/GitLab>.
 

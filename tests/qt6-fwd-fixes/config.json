@@ -1,0 +1,18 @@
+{
+    "minimum_qt_version" : 51500,
+    "minimum_clang_version" : 1000,
+    "tests" : [
+        {
+            "filename" : "main.cpp",
+            "has_fixits" : true
+        },
+        {
+            "filename" : "file1.cpp",
+            "has_fixits" : true
+        },
+        {
+            "filename" : "file2.cpp",
+            "has_fixits" : true
+        }
+    ]
+}

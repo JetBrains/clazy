@@ -55,8 +55,7 @@ using namespace clang;
 using namespace std;
 
 // TODO, go over all these
-// UNITY_BUILD_EXTENSION: Added 0
-static bool shouldIgnoreClass0(CXXRecordDecl *record)
+bool FunctionArgsByValue::shouldIgnoreClass(CXXRecordDecl *record)
 {
     if (!record)
         return false;
@@ -79,8 +78,7 @@ static bool shouldIgnoreClass0(CXXRecordDecl *record)
     return clazy::contains(ignoreList, record->getQualifiedNameAsString());
 }
 
-// UNITY_BUILD_EXTENSION: Added 0
-static bool shouldIgnoreOperator0(FunctionDecl *function)
+bool FunctionArgsByValue::shouldIgnoreOperator(FunctionDecl *function)
 {
     // Too many warnings in operator<<
     static const vector<StringRef> ignoreList = { "operator<<" };
@@ -88,8 +86,7 @@ static bool shouldIgnoreOperator0(FunctionDecl *function)
     return clazy::contains(ignoreList, clazy::name(function));
 }
 
-// UNITY_BUILD_EXTENSION: Added 0
-static bool shouldIgnoreFunction0(clang::FunctionDecl *function)
+bool FunctionArgsByValue::shouldIgnoreFunction(clang::FunctionDecl *function)
 {
     static const vector<string> qualifiedIgnoreList = {"QDBusMessage::createErrorReply", // Fixed in Qt6
                                                        "QMenu::exec", // Fixed in Qt6
@@ -137,10 +134,10 @@ void FunctionArgsByValue::processFunction(FunctionDecl *func)
         return;
     }
 
-    if (shouldIgnoreOperator0(func))
+    if (shouldIgnoreOperator(func))
         return;
 
-    if (m_context->isQtDeveloper() && shouldIgnoreFunction0(func))
+    if (m_context->isQtDeveloper() && shouldIgnoreFunction(func))
         return;
 
     Stmt *body = func->getBody();
@@ -153,7 +150,7 @@ void FunctionArgsByValue::processFunction(FunctionDecl *func)
         if (!paramType || paramType->isIncompleteType() || paramType->isDependentType())
             continue;
 
-        if (shouldIgnoreClass0(paramType->getAsCXXRecordDecl()))
+        if (shouldIgnoreClass(paramType->getAsCXXRecordDecl()))
             continue;
 
         clazy::QualTypeClassification classif;
