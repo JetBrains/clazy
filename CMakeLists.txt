@@ -135,10 +135,17 @@ macro(link_to_llvm name is_standalone)
 
       target_link_libraries(${name} ${clang_lib})
     endforeach()
-    target_link_libraries(${name} ${clang_support_lib})
-    target_link_libraries(${name} clangTooling)
-    target_link_libraries(${name} clangToolingCore)
-    target_link_libraries(${name} ${clang_tooling_refactoring_lib})
+    if (CLION_TOOLS_INSTALL)
+      target_link_libraries(${name} PRIVATE ${clang_support_lib})
+      target_link_libraries(${name} PRIVATE clangTooling)
+      target_link_libraries(${name} PRIVATE clangToolingCore)
+      target_link_libraries(${name} PRIVATE ${clang_tooling_refactoring_lib})
+    else()
+      target_link_libraries(${name} ${clang_support_lib})
+      target_link_libraries(${name} clangTooling)
+      target_link_libraries(${name} clangToolingCore)
+      target_link_libraries(${name} ${clang_tooling_refactoring_lib})
+    endif()
   endif()
 
   foreach(llvm_lib ${LLVM_LIBS})
@@ -313,16 +320,23 @@ else()
     clangStaticAnalyzerCore
     clangStaticAnalyzerFrontend
     )
-  add_executable(clazy-standalone ${CLAZY_STANDALONE_SRCS})
+
+  if (CLION_TOOLS_INSTALL)
+    set_property(TARGET clazyPlugin PROPERTY VERSION)
+    set_property(TARGET clazyPlugin PROPERTY SOVERSION)
+    add_clang_tool(clazy-standalone ${CLAZY_STANDALONE_SRCS})
+    target_link_libraries(clazy-standalone PRIVATE clazyPlugin)
+  else()
+    add_executable(clazy-standalone ${CLAZY_STANDALONE_SRCS})
+    target_link_libraries(clazy-standalone clazyPlugin)
+    install(TARGETS clazy-standalone DESTINATION bin PERMISSIONS OWNER_WRITE OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_READ WORLD_EXECUTE)
+  endif()
+
+  link_to_llvm(clazy-standalone TRUE)
 
   if (WIN32 AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_options(clazyPlugin PUBLIC LINKER:--exclude-all-symbols)
   endif()
-  target_link_libraries(clazy-standalone clazyPlugin)
-
-  link_to_llvm(clazy-standalone TRUE)
-
-  install(TARGETS clazy-standalone DESTINATION bin PERMISSIONS OWNER_WRITE OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_READ WORLD_EXECUTE)
 endif()
 
 function(to_raw_string_literal input_string output_string)
