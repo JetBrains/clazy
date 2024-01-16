@@ -67,7 +67,7 @@ void FixItExporter::BeginSourceFile(const LangOptions &LangOpts, const Preproces
         Client->BeginSourceFile(LangOpts, PP);
 
     const auto id = SourceMgr.getMainFileID();
-    const auto entry = SourceMgr.getFileEntryForID(id);
+    const auto entry = SourceMgr.getFileEntryRefForID(id);
     getTuDiag().MainSourceFile = static_cast<std::string>(entry->getName());
 }
 

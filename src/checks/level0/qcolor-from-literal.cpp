@@ -51,7 +51,7 @@ static bool handleStringLiteral(const StringLiteral *literal)
         return false;
 
     llvm::StringRef str = literal->getString();
-    if (!str.startswith("#"))
+    if (!str.starts_with("#"))
         return false;
 
     return true;
