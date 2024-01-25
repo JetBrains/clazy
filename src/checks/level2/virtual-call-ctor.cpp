@@ -115,7 +115,7 @@ SourceLocation VirtualCallCtor::containsVirtualCall(clang::CXXRecordDecl *classD
             continue;
 
         if (memberDecl->getParent() == classDecl) {
-            if (memberDecl->isPure()) {
+            if (memberDecl->isPureVirtual()) {
                 return clazy::getLocStart(callExpr);
             } else {
                 if (containsVirtualCall(classDecl, memberDecl->getBody(), processedStmts).isValid())

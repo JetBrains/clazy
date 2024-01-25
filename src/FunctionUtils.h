@@ -107,7 +107,7 @@ inline bool classImplementsMethod(const clang::CXXRecordDecl *record, const clan
 
     llvm::StringRef methodName = clazy::name(method);
     for (auto m : record->methods()) {
-        if (!m->isPure() && clazy::name(m) == methodName && parametersMatch(m, method))
+        if (!m->isPureVirtual() && clazy::name(m) == methodName && parametersMatch(m, method))
             return true;
     }
 
