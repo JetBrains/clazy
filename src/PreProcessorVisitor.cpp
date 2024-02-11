@@ -186,7 +186,7 @@ void PreProcessorVisitor::MacroExpands(const Token &MacroNameTok, const MacroDef
 void PreProcessorVisitor::InclusionDirective (clang::SourceLocation, const clang::Token &,
                                               clang::StringRef FileName, bool IsAngled, clang::CharSourceRange FilenameRange,
                                               clazy::OptionalFileEntryRef, clang::StringRef, clang::StringRef,
-                                              const clang::Module *, clang::SrcMgr::CharacteristicKind)
+                                              const clang::Module *, bool, clang::SrcMgr::CharacteristicKind)
 {
    if (m_ci.getPreprocessor().isInPrimaryFile() && !clazy::endsWith(FileName.str(), ".moc")) {
         m_includeInfo.push_back(IncludeInfo{FileName, IsAngled, FilenameRange});

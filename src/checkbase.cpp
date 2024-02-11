@@ -106,9 +106,10 @@ void ClazyPreprocessorCallbacks::MacroDefined(const Token &macroNameTok, const M
 
 void ClazyPreprocessorCallbacks::InclusionDirective(clang::SourceLocation HashLoc, const clang::Token &IncludeTok, clang::StringRef FileName, bool IsAngled,
                                                     clang::CharSourceRange FilenameRange, clazy::OptionalFileEntryRef File, clang::StringRef SearchPath,
-                                                    clang::StringRef RelativePath, const clang::Module *Imported, clang::SrcMgr::CharacteristicKind FileType)
+                                                    clang::StringRef RelativePath, const clang::Module *SuggestedModule, bool ModuleImported,
+                                                    clang::SrcMgr::CharacteristicKind FileType)
 {
-    check->VisitInclusionDirective(HashLoc, IncludeTok, FileName, IsAngled, FilenameRange, File, SearchPath, RelativePath, Imported, FileType);
+    check->VisitInclusionDirective(HashLoc, IncludeTok, FileName, IsAngled, FilenameRange, File, SearchPath, RelativePath, SuggestedModule, FileType);
 }
 
 CheckBase::CheckBase(const string &name, const ClazyContext *context, Options options)
