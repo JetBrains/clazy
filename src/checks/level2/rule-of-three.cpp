@@ -1,29 +1,13 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2015 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2015 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "rule-of-three.h"
-#include "Utils.h"
 #include "MacroUtils.h"
 #include "TypeUtils.h"
-#include "SourceCompatibilityHelpers.h"
+#include "Utils.h"
 #include "clazy_stl.h"
 
 #include <clang/AST/DeclBase.h>
@@ -40,31 +24,34 @@
 class ClazyContext;
 
 using namespace clang;
-using namespace std;
 
 RuleOfThree::RuleOfThree(const std::string &name, ClazyContext *context)
     : RuleOfBase(name, context)
 {
-    m_filesToIgnore = { "qrc_" };
+    m_filesToIgnore = {"qrc_"};
 }
 
 void RuleOfThree::VisitDecl(clang::Decl *decl)
 {
-    CXXRecordDecl *record = dyn_cast<CXXRecordDecl>(decl);
-    if (!record || isBlacklisted(record) || !record->hasDefinition() || record->isPolymorphic())
+    auto *record = dyn_cast<CXXRecordDecl>(decl);
+    if (!record || isBlacklisted(record) || !record->hasDefinition() || record->isPolymorphic()) {
         return;
+    }
 
     // fwd decl is not interesting
-    if (record != record->getDefinition())
+    if (record != record->getDefinition()) {
         return;
+    }
 
-    if (shouldIgnoreFile(clazy::getLocStart(decl)))
+    if (shouldIgnoreFile(decl->getBeginLoc())) {
         return;
+    }
 
-    const SourceLocation recordStart = clazy::getLocStart(record);
+    const SourceLocation recordStart = record->getBeginLoc();
     if (recordStart.isMacroID()) {
-        if (clazy::isInMacro(&m_astContext, recordStart, "Q_GLOBAL_STATIC_INTERNAL"))
+        if (clazy::isInMacro(&m_astContext, recordStart, "Q_GLOBAL_STATIC_INTERNAL")) {
             return;
+        }
     }
 
     CXXConstructorDecl *copyCtor = Utils::copyCtor(record);
@@ -81,7 +68,7 @@ void RuleOfThree::VisitDecl(clang::Decl *decl)
 
     bool hasImplicitDeletedCopy = false;
     if (!copyCtor || !copyAssign) {
-        for (auto f : record->fields()) {
+        for (auto *f : record->fields()) {
             QualType qt = f->getType();
             if (qt.isConstQualified() || qt->isRValueReferenceType()) {
                 hasImplicitDeletedCopy = true;
@@ -98,32 +85,37 @@ void RuleOfThree::VisitDecl(clang::Decl *decl)
     }
 
     const int numImplemented = hasUserCopyCtor + hasUserCopyAssign + hasUserDtor;
-    if (numImplemented == 0 || numImplemented == 3) // Rule of 3 respected
+    if (numImplemented == 0 || numImplemented == 3) { // Rule of 3 respected
         return;
+    }
 
-    vector<StringRef> hasList;
-    vector<StringRef> missingList;
-    if (hasUserDtor)
+    std::vector<StringRef> hasList;
+    std::vector<StringRef> missingList;
+    if (hasUserDtor) {
         hasList.push_back("dtor");
-    else
+    } else {
         missingList.push_back("dtor");
+    }
 
-    if (hasUserCopyCtor)
+    if (hasUserCopyCtor) {
         hasList.push_back("copy-ctor");
-    else
+    } else {
         missingList.push_back("copy-ctor");
+    }
 
-    if (hasUserCopyAssign)
+    if (hasUserCopyAssign) {
         hasList.push_back("copy-assignment");
-    else
+    } else {
         missingList.push_back("copy-assignment");
+    }
 
     const int numNotImplemented = missingList.size();
 
     if (hasUserDtor && numImplemented == 1) {
         // Protected dtor is a way for a non-polymorphic base class avoid being deleted
-        if (destructor->getAccess() == clang::AccessSpecifier::AS_protected)
+        if (destructor->getAccess() == clang::AccessSpecifier::AS_protected) {
             return;
+        }
 
         if (Utils::functionHasEmptyBody(destructor)) {
             // Lets reduce noise and allow the empty dtor. In theory we could warn, but there's no
@@ -132,25 +124,29 @@ void RuleOfThree::VisitDecl(clang::Decl *decl)
         }
     }
 
-    if (!hasUserDtor && (clazy::derivesFrom(record, "QSharedData") || dtorDefaultedByUser))
+    if (!hasUserDtor && (clazy::derivesFrom(record, "QSharedData") || dtorDefaultedByUser)) {
         return;
+    }
 
-    if (Utils::hasMember(record, "QSharedDataPointer"))
+    if (Utils::hasMember(record, "QSharedDataPointer")) {
         return; // These need boiler-plate copy ctor and dtor
+    }
 
-    const string className = record->getNameAsString();
-    const string classQualifiedName = record->getQualifiedNameAsString();
-    const string filename = static_cast<string>(sm().getFilename(recordStart));
-    if (clazy::endsWith(className, "Private") && clazy::endsWithAny(filename, { ".cpp", ".cxx", "_p.h" }))
+    const std::string className = record->getNameAsString();
+    const std::string classQualifiedName = record->getQualifiedNameAsString();
+    const std::string filename = static_cast<std::string>(sm().getFilename(recordStart));
+    if (clazy::endsWith(className, "Private") && clazy::endsWithAny(filename, {".cpp", ".cxx", "_p.h"})) {
         return; // Lots of RAII classes fall into this category. And even Private (d-pointer) classes, warning in that case would just be noise
+    }
 
-    string msg = classQualifiedName + " has ";
+    std::string msg = classQualifiedName + " has ";
 
     for (int i = 0; i < numImplemented; ++i) {
         msg += hasList[i];
         const bool isLast = i == numImplemented - 1;
-        if (!isLast)
+        if (!isLast) {
             msg += ',';
+        }
         msg += ' ';
     }
 
@@ -158,9 +154,10 @@ void RuleOfThree::VisitDecl(clang::Decl *decl)
     for (int i = 0; i < numNotImplemented; ++i) {
         msg += missingList[i];
         const bool isLast = i == numNotImplemented - 1;
-        if (!isLast)
+        if (!isLast) {
             msg += ", ";
+        }
     }
 
-    emitWarning(clazy::getLocStart(decl), msg);
+    emitWarning(decl->getBeginLoc(), msg);
 }

@@ -1,25 +1,10 @@
 /*
-  This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2021 Klarälvdalens Datakonsult AB a KDAB Group company info@kdab.com
+    SPDX-FileContributor: Waqar Ahmed <waqar.ahmed@kdab.com>
 
-  Copyright (C) 2021 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
-  Author: Waqar Ahmed <waqar.ahmed@kdab.com>
+    SPDX-FileCopyrightText: 2021 Waqar Ahmed <waqar.17a@gmail.com>
 
-  Copyright (C) 2021 Waqar Ahmed <waqar.17a@gmail.com>
-
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Library General Public
-  License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Library General Public License for more details.
-
-  You should have received a copy of the GNU Library General Public License
-  along with this library; see the file COPYING.LIB.  If not, write to
-  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-  Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "use-arrow-operator-instead-of-data.h"
@@ -27,7 +12,6 @@
 #include "HierarchyUtils.h"
 #include <clang/AST/ExprCXX.h>
 
-using namespace std;
 using namespace clang;
 
 UseArrowOperatorInsteadOfData::UseArrowOperatorInsteadOfData(const std::string &name, ClazyContext *context)
@@ -37,7 +21,7 @@ UseArrowOperatorInsteadOfData::UseArrowOperatorInsteadOfData(const std::string &
 
 void UseArrowOperatorInsteadOfData::VisitStmt(clang::Stmt *stmt)
 {
-    auto ce = dyn_cast<CXXMemberCallExpr>(stmt);
+    auto *ce = dyn_cast<CXXMemberCallExpr>(stmt);
     if (!ce) {
         return;
     }
@@ -46,23 +30,20 @@ void UseArrowOperatorInsteadOfData::VisitStmt(clang::Stmt *stmt)
     if (vec.size() < 2) {
         return;
     }
-    
+
     CallExpr *callExpr = vec.at(vec.size() - 1);
 
-    FunctionDecl* funcDecl = callExpr->getDirectCallee();
+    FunctionDecl *funcDecl = callExpr->getDirectCallee();
     if (!funcDecl) {
         return;
     }
     const std::string func = clazy::qualifiedMethodName(funcDecl);
 
-    static const std::vector<std::string> whiteList {
-        "QScopedPointer::data",
-        "QPointer::data",
-        "QSharedPointer::data",
-        "QSharedDataPointer::data"
-    };
+    static const std::vector<std::string> whiteList{"QScopedPointer::data", "QPointer::data", "QSharedPointer::data", "QSharedDataPointer::data"};
 
-    bool accepted = clazy::any_of(whiteList, [func](const std::string& f) { return f == func; });
+    bool accepted = clazy::any_of(whiteList, [func](const std::string &f) {
+        return f == func;
+    });
     if (!accepted) {
         return;
     }
@@ -88,5 +69,5 @@ void UseArrowOperatorInsteadOfData::VisitStmt(clang::Stmt *stmt)
     FixItHint removal = FixItHint::CreateRemoval(sourceRange);
     fixits.push_back(std::move(removal));
 
-    emitWarning(clazy::getLocStart(callExpr), "Use operator -> directly instead of " + ClassName + "::data()->", fixits);
+    emitWarning(callExpr->getBeginLoc(), "Use operator -> directly instead of " + ClassName + "::data()->", fixits);
 }

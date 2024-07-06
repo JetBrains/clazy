@@ -28,4 +28,5 @@ void test(int argc, char**argv)
     QString().arg(s1, s2, s3, s4, s5).arg(s1, s2, s3, s4, s5); // OK
     QString().arg(s1, s2, s3, s4, s5).arg(s1, s2, s3, s4); // Warning
     QT_REQUIRE_VERSION(argc, argv, "5.2.0"); // OK (bug #391851)
+    QString().arg("x").arg("combineme").arg(s, -38).arg("abc"); // WARN, first two args may be multiarg
 }

@@ -1,42 +1,26 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2017 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2017 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "PreProcessorVisitor.h"
 #include "MacroUtils.h"
 
-#include <clang/Frontend/CompilerInstance.h>
-#include <clang/Lex/Preprocessor.h>
-#include <clang/Lex/MacroInfo.h>
 #include <clang/Basic/IdentifierTable.h>
 #include <clang/Basic/SourceLocation.h>
 #include <clang/Basic/SourceManager.h>
+#include <clang/Frontend/CompilerInstance.h>
+#include <clang/Lex/MacroInfo.h>
 #include <clang/Lex/PPCallbacks.h>
+#include <clang/Lex/Preprocessor.h>
 #include <clang/Lex/Token.h>
 #include <llvm/ADT/ArrayRef.h>
 
-#include <stdlib.h>
 #include <memory>
+#include <stdlib.h>
 
 using namespace clang;
-using namespace std;
 
 PreProcessorVisitor::PreProcessorVisitor(const clang::CompilerInstance &ci)
     : clang::PPCallbacks()
@@ -52,24 +36,26 @@ PreProcessorVisitor::PreProcessorVisitor(const clang::CompilerInstance &ci)
 
 bool PreProcessorVisitor::isBetweenQtNamespaceMacros(SourceLocation loc)
 {
-    if (loc.isInvalid())
+    if (loc.isInvalid()) {
         return false;
+    }
 
-    if (loc.isMacroID())
+    if (loc.isMacroID()) {
         loc = m_sm.getExpansionLoc(loc);
+    }
 
     uint fileId = m_sm.getFileID(loc).getHashValue();
 
-    vector<SourceRange> &pairs = m_q_namespace_macro_locations[fileId];
+    std::vector<SourceRange> &pairs = m_q_namespace_macro_locations[fileId];
     for (SourceRange &pair : pairs) {
         if (pair.getBegin().isInvalid() || pair.getEnd().isInvalid()) {
-            //llvm::errs() << "PreProcessorVisitor::isBetweenQtNamespaceMacros Found invalid location\n";
+            // llvm::errs() << "PreProcessorVisitor::isBetweenQtNamespaceMacros Found invalid location\n";
             continue; // shouldn't happen
         }
 
-        if (m_sm.isBeforeInSLocAddrSpace(pair.getBegin(), loc) &&
-            m_sm.isBeforeInSLocAddrSpace(loc, pair.getEnd()))
+        if (m_sm.isBeforeInSLocAddrSpace(pair.getBegin(), loc) && m_sm.isBeforeInSLocAddrSpace(loc, pair.getEnd())) {
             return true;
+        }
     }
 
     return false;
@@ -77,7 +63,7 @@ bool PreProcessorVisitor::isBetweenQtNamespaceMacros(SourceLocation loc)
 
 bool PreProcessorVisitor::hasInclude(const std::string &fileName, bool IsAngled) const
 {
-    auto it = std::find_if(m_includeInfo.cbegin(), m_includeInfo.cend(), [&] (const IncludeInfo& info) {
+    auto it = std::find_if(m_includeInfo.cbegin(), m_includeInfo.cend(), [&](const IncludeInfo &info) {
         return info.fileName == fileName && info.IsAngled == IsAngled;
     });
     return (it != m_includeInfo.cend());
@@ -85,24 +71,28 @@ bool PreProcessorVisitor::hasInclude(const std::string &fileName, bool IsAngled)
 
 SourceLocation PreProcessorVisitor::endOfIncludeSection() const
 {
-    if (m_includeInfo.empty())
+    if (m_includeInfo.empty()) {
         return {};
+    }
     return m_includeInfo.back().filenameRange.getEnd();
 }
 
 std::string PreProcessorVisitor::getTokenSpelling(const MacroDefinition &def) const
 {
-    if (!def)
+    if (!def) {
         return {};
+    }
 
     MacroInfo *info = def.getMacroInfo();
-    if (!info)
+    if (!info) {
         return {};
+    }
 
     const Preprocessor &pp = m_ci.getPreprocessor();
-    string result;
-    for (const auto &tok : info->tokens())
+    std::string result;
+    for (const auto &tok : info->tokens()) {
         result += pp.getSpelling(tok);
+    }
 
     return result;
 }
@@ -120,7 +110,7 @@ void PreProcessorVisitor::handleQtNamespaceMacro(SourceLocation loc, StringRef n
 {
     const bool isBegin = name == "QT_BEGIN_NAMESPACE";
     uint fileId = m_sm.getFileID(loc).getHashValue();
-    vector<SourceRange> &pairs = m_q_namespace_macro_locations[fileId];
+    std::vector<SourceRange> &pairs = m_q_namespace_macro_locations[fileId];
 
     if (isBegin) {
         pairs.push_back(SourceRange(loc, {}));
@@ -138,20 +128,21 @@ void PreProcessorVisitor::handleQtNamespaceMacro(SourceLocation loc, StringRef n
     }
 }
 
-static int stringToNumber(const string &str)
+static int stringToNumber(const std::string &str)
 {
-    if (str.empty())
+    if (str.empty()) {
         return -1;
+    }
 
     return atoi(str.c_str());
 }
 
-void PreProcessorVisitor::MacroExpands(const Token &MacroNameTok, const MacroDefinition &def,
-                                       SourceRange range, const MacroArgs *)
+void PreProcessorVisitor::MacroExpands(const Token &MacroNameTok, const MacroDefinition &def, SourceRange range, const MacroArgs *)
 {
     IdentifierInfo *ii = MacroNameTok.getIdentifierInfo();
-    if (!ii)
+    if (!ii) {
         return;
+    }
 
     if (ii->getName() == "QT_BEGIN_NAMESPACE" || ii->getName() == "QT_END_NAMESPACE") {
         handleQtNamespaceMacro(range.getBegin(), ii->getName());
@@ -163,8 +154,9 @@ void PreProcessorVisitor::MacroExpands(const Token &MacroNameTok, const MacroDef
         return;
     }
 
-    if (m_qtVersion != -1)
+    if (m_qtVersion != -1) {
         return;
+    }
 
     auto name = ii->getName();
     if (name == "QT_VERSION_MAJOR") {
@@ -183,12 +175,19 @@ void PreProcessorVisitor::MacroExpands(const Token &MacroNameTok, const MacroDef
     }
 }
 
-void PreProcessorVisitor::InclusionDirective (clang::SourceLocation, const clang::Token &,
-                                              clang::StringRef FileName, bool IsAngled, clang::CharSourceRange FilenameRange,
-                                              clazy::OptionalFileEntryRef, clang::StringRef, clang::StringRef,
-                                              const clang::Module *, bool, clang::SrcMgr::CharacteristicKind)
+void PreProcessorVisitor::InclusionDirective(clang::SourceLocation,
+                                             const clang::Token &,
+                                             clang::StringRef FileName,
+                                             bool IsAngled,
+                                             clang::CharSourceRange FilenameRange,
+                                             clazy::OptionalFileEntryRef,
+                                             clang::StringRef,
+                                             clang::StringRef,
+                                             const clang::Module *,
+                                             bool,
+                                             clang::SrcMgr::CharacteristicKind)
 {
-   if (m_ci.getPreprocessor().isInPrimaryFile() && !clazy::endsWith(FileName.str(), ".moc")) {
+    if (m_ci.getPreprocessor().isInPrimaryFile() && !clazy::endsWith(FileName.str(), ".moc")) {
         m_includeInfo.push_back(IncludeInfo{FileName, IsAngled, FilenameRange});
     }
 }

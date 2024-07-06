@@ -1,65 +1,47 @@
 /*
-  This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2015 Klarälvdalens Datakonsult AB a KDAB Group company info@kdab.com
+    SPDX-FileContributor: Sérgio Martins <sergio.martins@kdab.com>
 
-    Copyright (C) 2015 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
-    Author: Sérgio Martins <sergio.martins@kdab.com>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "FixItUtils.h"
 #include "StringUtils.h"
-#include "SourceCompatibilityHelpers.h"
 
+#include <clang/AST/ASTContext.h>
 #include <clang/AST/Expr.h>
 #include <clang/AST/ExprCXX.h>
-#include <clang/Basic/Diagnostic.h>
-#include <clang/Lex/Lexer.h>
-#include <clang/AST/ASTContext.h>
 #include <clang/AST/Stmt.h>
+#include <clang/Basic/Diagnostic.h>
 #include <clang/Basic/SourceLocation.h>
 #include <clang/Basic/SourceManager.h>
+#include <clang/Lex/Lexer.h>
 #include <clang/Lex/Token.h>
 
 using namespace clazy;
 using namespace clang;
-using namespace std;
 
 clang::FixItHint clazy::createReplacement(clang::SourceRange range, const std::string &replacement)
 {
     if (range.getBegin().isInvalid()) {
         return {};
-    } else {
-        return FixItHint::CreateReplacement(range, replacement);
     }
+    return FixItHint::CreateReplacement(range, replacement);
 }
 
 clang::FixItHint clazy::createInsertion(clang::SourceLocation start, const std::string &insertion)
 {
     if (start.isInvalid()) {
         return {};
-    } else {
-        return FixItHint::CreateInsertion(start, insertion);
     }
+    return FixItHint::CreateInsertion(start, insertion);
 }
 
 SourceRange clazy::rangeForLiteral(const ASTContext *context, StringLiteral *lt)
 {
-    if (!lt)
+    if (!lt) {
         return {};
+    }
 
     const int numTokens = lt->getNumConcatenated();
     const SourceLocation lastTokenLoc = lt->getStrTokenLoc(numTokens - 1);
@@ -68,9 +50,10 @@ SourceRange clazy::rangeForLiteral(const ASTContext *context, StringLiteral *lt)
     }
 
     SourceRange range;
-    range.setBegin(clazy::getLocStart(lt));
+    range.setBegin(lt->getBeginLoc());
 
-    SourceLocation end = Lexer::getLocForEndOfToken(lastTokenLoc, 0,
+    SourceLocation end = Lexer::getLocForEndOfToken(lastTokenLoc,
+                                                    0,
                                                     context->getSourceManager(),
                                                     context->getLangOpts()); // For some reason getLocStart(lt) is == to getLocEnd(lt)
 
@@ -88,17 +71,16 @@ void clazy::insertParentMethodCall(const std::string &method, SourceRange range,
     fixits.push_back(clazy::createInsertion(range.getBegin(), method + '('));
 }
 
-bool clazy::insertParentMethodCallAroundStringLiteral(const ASTContext *context,
-                                                      const std::string &method,
-                                                      StringLiteral *lt,
-                                                      std::vector<FixItHint> &fixits)
+bool clazy::insertParentMethodCallAroundStringLiteral(const ASTContext *context, const std::string &method, StringLiteral *lt, std::vector<FixItHint> &fixits)
 {
-    if (!lt)
+    if (!lt) {
         return false;
+    }
 
     const SourceRange range = rangeForLiteral(context, lt);
-    if (range.isInvalid())
+    if (range.isInvalid()) {
         return false;
+    }
 
     insertParentMethodCall(method, range, /*by-ref*/ fixits);
     return true;
@@ -106,33 +88,38 @@ bool clazy::insertParentMethodCallAroundStringLiteral(const ASTContext *context,
 
 SourceLocation clazy::locForNextToken(const ASTContext *context, SourceLocation start, tok::TokenKind kind)
 {
-    if (!start.isValid())
+    if (!start.isValid()) {
         return {};
+    }
 
     Token result;
     Lexer::getRawToken(start, result, context->getSourceManager(), context->getLangOpts());
 
-    if (result.getKind() == kind)
+    if (result.getKind() == kind) {
         return start;
+    }
 
     auto nextStart = Lexer::getLocForEndOfToken(start, 0, context->getSourceManager(), context->getLangOpts());
-    if (nextStart.getRawEncoding() == start.getRawEncoding())
+    if (nextStart.getRawEncoding() == start.getRawEncoding()) {
         return {};
+    }
 
     return locForNextToken(context, nextStart, kind);
 }
 
 SourceLocation clazy::biggestSourceLocationInStmt(const SourceManager &sm, Stmt *stmt)
 {
-    if (!stmt)
+    if (!stmt) {
         return {};
+    }
 
-    SourceLocation biggestLoc = getLocEnd(stmt);
+    SourceLocation biggestLoc = stmt->getEndLoc();
 
-    for (auto child : stmt->children()) {
+    for (auto *child : stmt->children()) {
         SourceLocation candidateLoc = biggestSourceLocationInStmt(sm, child);
-        if (candidateLoc.isValid() && sm.isBeforeInSLocAddrSpace(biggestLoc, candidateLoc))
+        if (candidateLoc.isValid() && sm.isBeforeInSLocAddrSpace(biggestLoc, candidateLoc)) {
             biggestLoc = candidateLoc;
+        }
     }
 
     return biggestLoc;
@@ -143,56 +130,62 @@ SourceLocation clazy::locForEndOfToken(const ASTContext *context, SourceLocation
     return Lexer::getLocForEndOfToken(start, offset, context->getSourceManager(), context->getLangOpts());
 }
 
-bool clazy::transformTwoCallsIntoOne(const ASTContext *context, CallExpr *call1, CXXMemberCallExpr *call2,
-                                     const string &replacement, vector<FixItHint> &fixits)
+bool clazy::transformTwoCallsIntoOne(const ASTContext *context,
+                                     CallExpr *call1,
+                                     CXXMemberCallExpr *call2,
+                                     const std::string &replacement,
+                                     std::vector<FixItHint> &fixits)
 {
     Expr *implicitArgument = call2->getImplicitObjectArgument();
-    if (!implicitArgument)
+    if (!implicitArgument) {
         return false;
+    }
 
-    const SourceLocation start1 = clazy::getLocStart(call1);
+    const SourceLocation start1 = call1->getBeginLoc();
     const SourceLocation end1 = clazy::locForEndOfToken(context, start1, -1); // -1 of offset, so we don't need to insert '('
-    if (end1.isInvalid())
+    if (end1.isInvalid()) {
         return false;
+    }
 
-    const SourceLocation start2 = getLocEnd(implicitArgument);
-    const SourceLocation end2 = getLocEnd(call2);
-    if (start2.isInvalid() || end2.isInvalid())
+    const SourceLocation start2 = implicitArgument->getEndLoc();
+    const SourceLocation end2 = call2->getEndLoc();
+    if (start2.isInvalid() || end2.isInvalid()) {
         return false;
+    }
 
     // qgetenv("foo").isEmpty()
     // ^                         start1
     //       ^                   end1
     //              ^            start2
     //                        ^  end2
-    fixits.push_back(clazy::createReplacement({ start1, end1 }, replacement));
-    fixits.push_back(clazy::createReplacement({ start2, end2 }, ")"));
+    fixits.push_back(clazy::createReplacement({start1, end1}, replacement));
+    fixits.push_back(clazy::createReplacement({start2, end2}, ")"));
 
     return true;
 }
 
-bool clazy::transformTwoCallsIntoOneV2(const ASTContext *context, CXXMemberCallExpr *call2,
-                                       const string &replacement, std::vector<FixItHint> &fixits)
+bool clazy::transformTwoCallsIntoOneV2(const ASTContext *context, CXXMemberCallExpr *call2, const std::string &replacement, std::vector<FixItHint> &fixits)
 {
     Expr *implicitArgument = call2->getImplicitObjectArgument();
-    if (!implicitArgument)
+    if (!implicitArgument) {
         return false;
+    }
 
-    SourceLocation start = clazy::getLocStart(implicitArgument);
+    SourceLocation start = implicitArgument->getBeginLoc();
     start = clazy::locForEndOfToken(context, start, 0);
-    const SourceLocation end = getLocEnd(call2);
-    if (start.isInvalid() || end.isInvalid())
+    const SourceLocation end = call2->getEndLoc();
+    if (start.isInvalid() || end.isInvalid()) {
         return false;
+    }
 
-    fixits.push_back(clazy::createReplacement({ start, end }, replacement));
+    fixits.push_back(clazy::createReplacement({start, end}, replacement));
     return true;
 }
 
-FixItHint clazy::fixItReplaceWordWithWord(const ASTContext *context, clang::Stmt *begin,
-                                          const string &replacement, const string &replacee)
+FixItHint clazy::fixItReplaceWordWithWord(const ASTContext *context, clang::Stmt *begin, const std::string &replacement, const std::string &replacee)
 {
-    auto &sm = context->getSourceManager();
-    SourceLocation rangeStart = clazy::getLocStart(begin);
+    const auto &sm = context->getSourceManager();
+    SourceLocation rangeStart = begin->getBeginLoc();
     SourceLocation rangeEnd = Lexer::getLocForEndOfToken(rangeStart, -1, sm, context->getLangOpts());
 
     if (rangeEnd.isInvalid()) {
@@ -209,20 +202,19 @@ FixItHint clazy::fixItReplaceWordWithWord(const ASTContext *context, clang::Stmt
     return FixItHint::CreateReplacement(SourceRange(rangeStart, rangeEnd), replacement);
 }
 
-vector<FixItHint> clazy::fixItRemoveToken(const ASTContext *context, Stmt *stmt, bool removeParenthesis)
+std::vector<FixItHint> clazy::fixItRemoveToken(const ASTContext *context, Stmt *stmt, bool removeParenthesis)
 {
-    SourceLocation start = clazy::getLocStart(stmt);
-    SourceLocation end = Lexer::getLocForEndOfToken(start, removeParenthesis ? 0 : -1,
-                                                    context->getSourceManager(), context->getLangOpts());
+    SourceLocation start = stmt->getBeginLoc();
+    SourceLocation end = Lexer::getLocForEndOfToken(start, removeParenthesis ? 0 : -1, context->getSourceManager(), context->getLangOpts());
 
-    vector<FixItHint> fixits;
+    std::vector<FixItHint> fixits;
 
     if (start.isValid() && end.isValid()) {
         fixits.push_back(FixItHint::CreateRemoval(SourceRange(start, end)));
 
         if (removeParenthesis) {
             // Remove the last parenthesis
-            fixits.push_back(FixItHint::CreateRemoval(SourceRange(clazy::getLocEnd(stmt), clazy::getLocEnd(stmt))));
+            fixits.push_back(FixItHint::CreateRemoval(SourceRange(stmt->getEndLoc(), stmt->getEndLoc())));
         }
     }
 

@@ -1,7 +1,7 @@
 #include <QtCore/QObject>
-
+#include <QtDBus/QDBusPendingReply>
+#include <memory>
 struct A {};
-
 struct NonNamespacedGadget {
     Q_GADGET
 };
@@ -26,7 +26,7 @@ namespace NS {
         Q_PROPERTY(NonNamespacedGadget nonNamespacedGadget READ nonNamespacedGadget CONSTANT) // OK
     Q_SIGNALS:
         void mysig(NS::MyType);
-        void mysig2(MyType); // Warn
+        void mysig2(MyType &); // Warn
         void mysig3(NS::MyType);
         void mysig4(const NS::MyType &);
         void mysig5(A);
@@ -61,16 +61,46 @@ namespace NS {
 }
 
 
-
+template<typename T> using DummyListAlias = QList<T>;
 namespace { // annonymous
     struct AnnonFoo {};
 };
 
+using namespace std; // pair<bool,QualMe> is returned for one method, the check should warn about the missing "std::" prefix
 class MyObj2 : public QObject
 {
+public:
+    struct QualMe {};
+    using MyList = QList<QualMe>; // QualMe is not fully qualified here, but it shouldn't matter when using the typedef
+Q_OBJECT
 Q_SIGNALS:
     void mySig(AnnonFoo);
+public Q_SLOTS:
+    inline std::pair<bool,QualMe> unqualPairParam() {return {};} // Warn
+    inline pair<bool,QualMe> unqualPairClass() {return {};} // Warn
+    inline std::pair<bool, MyObj2::QualMe> fullyQUalPair() {return {};} // OK
+    inline MyList typeAlias() {return {};} // WARN
+    inline QList<QualMe> genericWithoutFullyQual() {return {};} // WARN
+    inline QList<MyObj2::QualMe> genericFullyQual() {return {};} // OK
+    inline QStringList qstringListTypealias() {return {};} // OK
+    inline MyObj2::MyList fullTypeAlias() {return {};} // OK
+    inline QDBusPendingReply<QualMe> unqualGenericDbusReply() {return {};} // WARN
+    inline QDBusPendingReply<bool> boolDbusReply() {return {};} // OK
+    inline QDBusPendingReply<> voidDbusReply() {return {};} // OK
+    inline QDBusPendingReply<MyList> typedefInGeneric() {return {};} // WARN
+    inline void nestedGeneric(QDBusPendingReply<std::shared_ptr<MyObj2>>) {} // OK
+    inline void nestedNotFullyQualifiedGeneric(QDBusPendingReply<std::shared_ptr<MyList>>) {} // WARN
+    inline const MyList& notQualWithModifier() {return lst;};
+    DummyListAlias<int> myList() { return {1,2,3};};
+private:
+    MyList lst;
 };
 
+Q_DECLARE_METATYPE(MyObj2::QualMe);
+Q_DECLARE_METATYPE(std::shared_ptr<MyObj2::MyList>);
 
-#include "main.moc_"
+#if QT_VERSION_MAJOR == 5
+#include "main.qt5.moc_"
+#else
+#include "main.qt6.moc_"
+#endif

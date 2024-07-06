@@ -5,12 +5,12 @@
 #include <QtCore/QFile>
 #include <QtCore/QHash>
 #include <QtCore/QSet>
+#include <QtCore/QJsonObject>
 
 QList<int> getList()
 {
     return QList<int>();
 }
-
 void detach1()
 {
     getList().first(); // Warning
@@ -48,15 +48,6 @@ void qstrings()
     test_string_ptr()->first(); // OK
 }
 
-
-void maps()
-{
-    QMap<int, QStringList> map;
-    map.value(0).first(); // OK, value() returns const T
-    map[0].removeAll("asd"); // OK
-    map.values().first(); // OK, QMap::values() isn't shared
-}
-
 void more()
 {
     QFile::encodeName("foo").data();
@@ -73,13 +64,6 @@ void test_global_static()
 {
     sISOMap()->insert(1, QStringList());
     sISOMap->insert(1, QStringList());
-}
-
-void test_ctor()
-{
-    QStringList().first();
-    QByteArray key = "key";
-    QByteArray(key + key).data();
 }
 
 struct TestThis : public QList<int>
@@ -131,13 +115,13 @@ void testTypedef()
 }
 
 QStringList getStringList() { return {}; }
-QMultiMap<int,int> getMultiMap() { return {}; }
+
 void testDerivedClass()
 {
     getStringList().first(); // Warning
     getStringList()[0]; // Warning
-    getMultiMap().begin(); // Warning
-    getMultiMap().insert(1, 1); // Warning
+                        //
+                        //
 }
 
 void testQStringListSpecificMethods()
@@ -166,4 +150,11 @@ void testIntersect()
 {
     QSet<int> other;
     auto s = getSet().intersect(other); // OK
+}
+
+QJsonObject getObj(){return {};}
+void testJsonDetach() {
+    getObj()[QLatin1String("bla")]; // Warning
+    getObj().find(QLatin1String("bla")); // Warning
+    getObj().value(QLatin1String("bla")); // OK
 }

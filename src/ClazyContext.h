@@ -1,22 +1,7 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2017 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2017 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef CLAZY_CONTEXT_H
@@ -25,18 +10,18 @@
 #include "SuppressionManager.h"
 #include "clazy_stl.h"
 
-#include <clang/Frontend/CompilerInstance.h>
-#include <clang/Lex/PreprocessorOptions.h>
 #include <clang/Basic/FileManager.h>
 #include <clang/Basic/SourceLocation.h>
 #include <clang/Basic/SourceManager.h>
-#include <llvm/Support/Regex.h>
+#include <clang/Frontend/CompilerInstance.h>
+#include <clang/Lex/PreprocessorOptions.h>
 #include <llvm/ADT/StringRef.h>
+#include <llvm/Support/Regex.h>
 
-#include <string>
-#include <vector>
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #ifndef _WIN32
 #define CLAZY_LINKAGE __attribute__((visibility("default")))
@@ -50,7 +35,8 @@
 
 // ClazyContext is just a struct to share data and code between all checks
 
-namespace clang {
+namespace clang
+{
 class CompilerInstance;
 class ASTContext;
 class ParentMap;
@@ -69,14 +55,14 @@ public:
     enum ClazyOption {
         ClazyOption_None = 0,
         ClazyOption_ExportFixes = 1,
-        ClazyOption_Qt4Compat = 2,
         ClazyOption_OnlyQt = 4, // Ignore non-Qt files. This is done by bailing out if QT_CORE_LIB is not set.
         ClazyOption_QtDeveloper = 8, // For running clazy on Qt itself, optional, but honours specific guidelines
         ClazyOption_VisitImplicitCode = 16, // Inspect compiler generated code aswell, useful for custom checks, if they need it
-        ClazyOption_IgnoreIncludedFiles = 32, // Only warn for the current file being compiled, not on includes (useful for performance reasons)
+        ClazyOption_IgnoreIncludedFiles = 32, // Only warn for the current file being compiled, not on includes (useful for performance reasons); note that the
+                                             // check has to support this feature i.e. has clazy::CheckBase::Option_CanIgnoreIncludes set
         ClazyOption_CLionMode = 64
     };
-    typedef int ClazyOptions;
+    using ClazyOptions = int;
 
     explicit ClazyContext(const clang::CompilerInstance &ci,
                           const std::string &headerFilter,
@@ -121,10 +107,12 @@ public:
         return clazy::contains(extraOptions, optionName);
     }
 
+
     bool fileMatchesLoc(const std::unique_ptr<llvm::Regex> &regex, clang::SourceLocation loc, clang::OptionalFileEntryRef &file) const
     {
-        if (!regex)
+        if (!regex) {
             return false;
+        }
 
         if (!file) {
             clang::FileID fid = sm.getDecomposedExpansionLoc(loc).first;
@@ -144,25 +132,29 @@ public:
         clang::OptionalFileEntryRef file;
         if (ignoreDirsRegex) {
             const bool matches = fileMatchesLoc(ignoreDirsRegex, loc, file);
-            if (matches)
+            if (matches) {
                 return true;
+            }
         }
 
         // 2. Process the regexp that includes files. Has lower priority.
-        if (!headerFilterRegex || isMainFile(loc))
+        if (!headerFilterRegex || isMainFile(loc)) {
             return false;
+        }
 
         const bool matches = fileMatchesLoc(headerFilterRegex, loc, file);
-        if (!file)
+        if (!file) {
             return false;
+        }
 
         return !matches;
     }
 
     bool isMainFile(clang::SourceLocation loc) const
     {
-        if (loc.isMacroID())
+        if (loc.isMacroID()) {
             loc = sm.getExpansionLoc(loc);
+        }
 
         return sm.isInFileID(loc, sm.getMainFileID());
     }

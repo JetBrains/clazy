@@ -1,7 +1,12 @@
 {
     "tests" : [
         {
-            "filename" : "main.cpp"
+            "filename" : "main.cpp",
+            "qt_major_versions" : [5]
+        },
+        {
+            "filename" : "main_qt6.cpp",
+            "qt_major_versions": [6]
         }
     ]
 }

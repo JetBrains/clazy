@@ -1,5 +1,5 @@
-#include <QtCore/QString>
 #include <QtCore/QRegularExpression>
+#include <QtCore/QString>
 
 void test()
 {
@@ -7,7 +7,7 @@ void test()
     }
 
     QString h = "hello";
-    auto c = h.indexOf(QRegularExpression("[hel]"), 0);  // Warn
+    auto c = h.indexOf(QRegularExpression("[hel]"), 0); // Warn
 
     QRegularExpression e("[a-z]");
     auto r = h.indexOf(e); // Warn
@@ -21,8 +21,8 @@ void test()
     h.lastIndexOf(e); // Warn
     h.lastIndexOf(staticRegex); // Ok
 
-    h.count(QRegularExpression("[hel]"));  // Warn
-    h.count(e);  // Warn
+    h.count(QRegularExpression("[hel]")); // Warn
+    h.count(e); // Warn
     h.count(staticRegex); // Ok
 
     h.replace(QRegularExpression("[hel]"), QString()); // Warn
@@ -37,18 +37,14 @@ void test()
     h.section(e, 0); // Warn
     h.section(staticRegex, 0); // Ok
 
-    h.split(QRegularExpression("[hel]"));  // Warn
-    h.split(e);  // Warn
+    h.split(QRegularExpression("[hel]")); // Warn
+    h.split(e); // Warn
     h.split(staticRegex); // Ok
-
-    h.splitRef(QRegularExpression("[hel]"));  // Warn
-    h.splitRef(e);  // Warn
-    h.splitRef(staticRegex); // Ok
 
     QStringList strList;
 
     strList.indexOf(e); // Warn
-    strList.indexOf(staticRegex);
+    strList.indexOf(staticRegex); // Ok
 
     strList.lastIndexOf(e); // Warn
     strList.lastIndexOf(staticRegex); // Ok
@@ -66,15 +62,15 @@ void test()
     }
 }
 
-void test1(const QString& regex, QString toCheck)
+void test1(const QString &regex, QString toCheck)
 {
     QRegularExpression re(regex);
     toCheck.contains(re); // Ok
 }
 
-void test2(const QStringList& regexes, QString toCheck)
+void test2(const QStringList &regexes, QString toCheck)
 {
-    for (const auto& regix : regexes) {
+    for (const auto &regix : regexes) {
         toCheck.contains(QRegularExpression(regix)); // Ok, no warn
     }
 }
@@ -119,4 +115,25 @@ void test_qregexmatch_rvalueString(QString s)
 
     QRegularExpression re3((QString(s)));
     re3.match(text);
+}
+
+void testArgs()
+{
+    {
+        QString("bla").contains(QRegularExpression(QString("test%1").arg("123"))); // OK
+    }
+    {
+        QRegularExpression reg(QString("test%1").arg("123"));
+        QString().contains(reg); // OK
+    }
+    {
+        QString pattern = QString("test%1").arg("123");
+        QRegularExpression reg(pattern);
+        QString().contains(reg); // OK
+    }
+    {
+        QString pattern = QString("someteststring").mid(1, 2);
+        QRegularExpression reg(pattern);
+        QString().contains(reg); // OK
+    }
 }

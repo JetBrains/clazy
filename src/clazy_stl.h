@@ -1,24 +1,8 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2016 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2016 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
-
 
 #ifndef CLAZY_STL_H
 #define CLAZY_STL_H
@@ -28,9 +12,10 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
+#include <string_view>
 
-namespace clazy {
-
+namespace clazy
+{
 // Don't use .begin() or cend(), clang's ranges don't have them
 // Don't use .size(), clang's ranges doesn't have it
 
@@ -81,7 +66,7 @@ bool all_of(const Range &r, Pred pred)
     return std::all_of(r.begin(), r.end(), pred);
 }
 
-template <typename Range>
+template<typename Range>
 size_t count(const Range &r)
 {
     return std::distance(r.begin(), r.end());
@@ -101,7 +86,7 @@ void append_if(const SrcContainer &src, DstContainer &dst, Pred pred)
     std::copy_if(src.begin(), src.end(), std::back_inserter(dst), pred);
 }
 
-template <typename Range>
+template<typename Range>
 bool isEmpty(const Range &r)
 {
     return r.begin() == r.end();
@@ -112,7 +97,7 @@ inline bool hasChildren(clang::Stmt *s)
     return s && !clazy::isEmpty(s->children());
 }
 
-inline clang::Stmt* childAt(clang::Stmt *s, int index)
+inline clang::Stmt *childAt(clang::Stmt *s, int index)
 {
     int count = s ? std::distance(s->child_begin(), s->child_end()) : 0;
     if (count > index) {
@@ -130,7 +115,7 @@ inline clang::Stmt* childAt(clang::Stmt *s, int index)
 /**
  * Returns true if the string target starts with maybeBeginning
  */
-inline bool startsWith(const std::string &target, const std::string &maybeBeginning)
+inline bool startsWith(std::string_view target, std::string_view maybeBeginning)
 {
     return target.compare(0, maybeBeginning.length(), maybeBeginning) == 0;
 }
@@ -138,11 +123,11 @@ inline bool startsWith(const std::string &target, const std::string &maybeBeginn
 /**
  * Returns true if the string target starts with any of the strings in beginningCandidates
  */
-inline bool startsWithAny(const std::string &target, const std::vector<std::string> &beginningCandidates)
+inline bool startsWithAny(std::string_view target, const std::vector<std::string> &beginningCandidates)
 {
     return clazy::any_of(beginningCandidates, [target](const std::string &maybeBeginning) {
-            return clazy::startsWith(target, maybeBeginning);
-        });
+        return clazy::startsWith(target, maybeBeginning);
+    });
 }
 
 /**
@@ -151,17 +136,16 @@ inline bool startsWithAny(const std::string &target, const std::vector<std::stri
 inline bool equalsAny(const std::string &target, const std::vector<std::string> &candidates)
 {
     return clazy::any_of(candidates, [target](const std::string &candidate) {
-            return candidate == target;
-        });
+        return candidate == target;
+    });
 }
 
 /**
  * Returns true if the string target ends with maybeEnding
  */
-inline bool endsWith(const std::string &target, const std::string &maybeEnding)
+inline bool endsWith(std::string_view target, std::string_view maybeEnding)
 {
-    return target.size() >= maybeEnding.size() &&
-           target.compare(target.size() - maybeEnding.size(), maybeEnding.size(), maybeEnding) == 0;
+    return target.size() >= maybeEnding.size() && target.compare(target.size() - maybeEnding.size(), maybeEnding.size(), maybeEnding) == 0;
 }
 
 /**
@@ -170,10 +154,9 @@ inline bool endsWith(const std::string &target, const std::string &maybeEnding)
 inline bool endsWithAny(const std::string &target, const std::vector<std::string> &endingCandidates)
 {
     return clazy::any_of(endingCandidates, [target](const std::string &maybeEnding) {
-            return clazy::endsWith(target, maybeEnding);
-        });
+        return clazy::endsWith(target, maybeEnding);
+    });
 }
-
 
 inline std::string toLower(const std::string &s)
 {
@@ -184,8 +167,27 @@ inline std::string toLower(const std::string &s)
 
 inline void rtrim(std::string &s)
 {
-    while (!s.empty() && std::isspace(s.back()))
+    while (!s.empty() && std::isspace(s.back())) {
         s.pop_back();
+    }
+}
+
+inline std::vector<std::string_view> splitStringBySpaces(std::string_view str)
+{
+    auto nextWord = [str](decltype(str)::const_iterator i) {
+        auto isSpace = [](char c) {
+            return std::isspace(c);
+        };
+        auto first = std::find_if_not(i, str.cend(), isSpace);
+        return std::make_pair(first, std::find_if(first, str.cend(), isSpace));
+    };
+
+    std::vector<std::string_view> result;
+    for (auto w = nextWord(str.cbegin()); w.first != str.cend(); w = nextWord(w.second)) {
+        // TODO[C++20] Use string_view(begin, end) constructor instead
+        result.emplace_back(std::addressof(*w.first), std::distance(w.first, w.second));
+    }
+    return result;
 }
 
 inline std::vector<std::string> splitString(const std::string &str, char separator)
@@ -202,8 +204,9 @@ inline std::vector<std::string> splitString(const std::string &str, char separat
 
 inline std::vector<std::string> splitString(const char *str, char separator)
 {
-    if (!str)
+    if (!str) {
         return {};
+    }
 
     return clazy::splitString(std::string(str), separator);
 }
@@ -224,8 +227,9 @@ void sort_and_remove_dups(Container &c, LessThan lessThan)
 inline std::string unquoteString(const std::string &str)
 {
     // If first and last are ", return what's in between quotes:
-    if (str.size() >= 3 && str[0] == '"' && str.at(str.size() - 1) == '"')
+    if (str.size() >= 3 && str[0] == '"' && str.at(str.size() - 1) == '"') {
         return str.substr(1, str.size() - 2);
+    }
 
     return str;
 }

@@ -1,0 +1,28 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: clazy
+Upstream-Contact: KDE Community
+Source: https://invent.kde.org/sdk/clazy
+
+Files: tests/qcolor-from-literal/*
+Copyright: Alexander Lohnau <alexander.lonau@gmx.de>
+License: LGPL-2.0-or-later
+
+Files: docs/checks/README-qcolor-from-literal.md
+Copyright: Alexander Lohnau <alexander.lonau@gmx.de>
+License: CC-BY-SA-4.0
+
+Files: tests/qcolor-from-literal/*
+Copyright: Alexander Lohnau <alexander.lonau@gmx.de>
+License: LGPL-2.0-or-later
+
+Files: tests/qdatetime-utc/*
+Copyright: Alexander Lohnau <alexander.lonau@gmx.de>
+License: LGPL-2.0-or-later
+
+Files: docs/checks/README-qdatetime-utc.md
+Copyright: Alexander Lohnau <alexander.lonau@gmx.de>
+License: CC-BY-SA-4.0
+
+Files: tests/fully-qualified-moc-types/*
+Copyright: Alexander Lohnau <alexander.lonau@gmx.de>
+License: LGPL-2.0-or-later

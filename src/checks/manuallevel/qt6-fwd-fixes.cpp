@@ -1,35 +1,16 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2020 The Qt Company Ltd.
+    SPDX-FileCopyrightText: 2020 Lucie Gerard <lucie.gerard@qt.io>
 
-    Copyright (C) 2020 The Qt Company Ltd.
-    Copyright (C) 2020 Lucie Gerard <lucie.gerard@qt.io>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "qt6-fwd-fixes.h"
 #include "ClazyContext.h"
-#include "Utils.h"
-#include "StringUtils.h"
 #include "FixItUtils.h"
-#include "HierarchyUtils.h"
-#include "SourceCompatibilityHelpers.h"
-#include "clazy_stl.h"
+#include "StringUtils.h"
+#include "Utils.h"
 
-#include <clang/Lex/Lexer.h>
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/Expr.h>
@@ -39,15 +20,14 @@
 #include <clang/Basic/Diagnostic.h>
 #include <clang/Basic/LLVM.h>
 #include <clang/Basic/SourceLocation.h>
+#include <clang/Lex/Lexer.h>
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 
 #include <clang/Basic/Specifiers.h>
-#include "llvm/MC/MCAsmMacro.h"
 
 using namespace clang;
-using namespace std;
 
 Qt6FwdFixes::Qt6FwdFixes(const std::string &name, ClazyContext *context)
     : CheckBase(name, context, Option_CanIgnoreIncludes)
@@ -56,22 +36,21 @@ Qt6FwdFixes::Qt6FwdFixes(const std::string &name, ClazyContext *context)
     context->enablePreprocessorVisitor();
 }
 
-static std::set<std::string> interestingFwdDecl = {"QCache", "QHash", "QMap", "QMultiHash", "QMultiMap", "QPair", "QQueue",
-                                                   "QSet", "QStack", "QVarLengthArray", "QList", "QVector", "QStringList",
-                                                   "QByteArrayList", "QMetaType", "QVariant", "QVariantList", "QVariantMap",
-                                                   "QVariantHash", "QVariantPair"};
+static std::set<std::string> interestingFwdDecl = {
+    "QCache", "QHash",   "QMap",        "QMultiHash",     "QMultiMap", "QPair",    "QQueue",       "QSet",        "QStack",       "QVarLengthArray",
+    "QList",  "QVector", "QStringList", "QByteArrayList", "QMetaType", "QVariant", "QVariantList", "QVariantMap", "QVariantHash", "QVariantPair"};
 
-SourceLocation locForNextSemiColon(SourceLocation loc, const clang::SourceManager &sm, const clang::LangOptions &lo){
-
+SourceLocation locForNextSemiColon(SourceLocation loc, const clang::SourceManager &sm, const clang::LangOptions &lo)
+{
     std::pair<FileID, unsigned> locInfo = sm.getDecomposedLoc(loc);
     bool InvalidTemp = false;
     StringRef File = sm.getBufferData(locInfo.first, &InvalidTemp);
-    if (InvalidTemp)
+    if (InvalidTemp) {
         return {};
+    }
 
     const char *TokenBegin = File.data() + locInfo.second;
-    Lexer lexer(sm.getLocForStartOfFile(locInfo.first), lo, File.begin(),
-                TokenBegin, File.end());
+    Lexer lexer(sm.getLocForStartOfFile(locInfo.first), lo, File.begin(), TokenBegin, File.end());
 
     Token Tok;
     lexer.LexFromRawLexer(Tok);
@@ -82,11 +61,10 @@ SourceLocation locForNextSemiColon(SourceLocation loc, const clang::SourceManage
     // plus white spaces and \n or \r  after
     unsigned NumCharsUntilSemiColon = 0;
     unsigned NumWhitespaceChars = 0;
-    const char *TokenEnd = sm.getCharacterData(TokenLoc) +
-                           Tok.getLength();
+    const char *TokenEnd = sm.getCharacterData(TokenLoc) + Tok.getLength();
     unsigned char C = *TokenEnd;
 
-    while (C!=';') {
+    while (C != ';') {
         C = *(++TokenEnd);
         NumCharsUntilSemiColon++;
     }
@@ -100,33 +78,38 @@ SourceLocation locForNextSemiColon(SourceLocation loc, const clang::SourceManage
         char PrevC = C;
         C = *(++TokenEnd);
         NumWhitespaceChars++;
-        if ((C == '\n' || C == '\r') && C != PrevC)
+        if ((C == '\n' || C == '\r') && C != PrevC) {
             NumWhitespaceChars++;
+        }
     }
-    return loc.getLocWithOffset(Tok.getLength() + NumCharsUntilSemiColon + NumWhitespaceChars +1);
+    return loc.getLocWithOffset(Tok.getLength() + NumCharsUntilSemiColon + NumWhitespaceChars + 1);
 }
 
 void Qt6FwdFixes::VisitDecl(clang::Decl *decl)
 {
-
-    CXXRecordDecl *recDecl = dyn_cast<CXXRecordDecl>(decl);
-    if (!recDecl)
+    auto *recDecl = dyn_cast<CXXRecordDecl>(decl);
+    if (!recDecl) {
         return;
-    auto parent = recDecl->getParent();
-    string parentType = parent->getDeclKindName();
-    if (parentType != "TranslationUnit")
+    }
+    auto *parent = recDecl->getParent();
+    std::string parentType = parent->getDeclKindName();
+    if (parentType != "TranslationUnit") {
         return;
-    if (recDecl->hasDefinition())
+    }
+    if (recDecl->hasDefinition()) {
         return;
-    if (interestingFwdDecl.find(recDecl->getNameAsString()) == interestingFwdDecl.end())
+    }
+    if (interestingFwdDecl.find(recDecl->getNameAsString()) == interestingFwdDecl.end()) {
         return;
+    }
 
     const std::string currentFile = m_sm.getFilename(decl->getLocation()).str();
     if (m_currentFile != currentFile) {
         m_currentFile = currentFile;
         m_including_qcontainerfwd = false;
-        if (m_qcontainerfwd_included_in_files.find(currentFile) != m_qcontainerfwd_included_in_files.end())
+        if (m_qcontainerfwd_included_in_files.find(currentFile) != m_qcontainerfwd_included_in_files.end()) {
             m_including_qcontainerfwd = true;
+        }
     }
 
     SourceLocation endLoc = locForNextSemiColon(recDecl->getBeginLoc(), m_sm, lo());
@@ -139,12 +122,12 @@ void Qt6FwdFixes::VisitDecl(clang::Decl *decl)
         beginLoc = recDecl->getBeginLoc();
     }
 
-    vector<FixItHint> fixits;
-    string message;
+    std::vector<FixItHint> fixits;
+    std::string message;
     auto warningLocation = beginLoc;
     SourceRange fixitRange = SourceRange(beginLoc, endLoc);
 
-    string replacement;
+    std::string replacement;
     CharSourceRange controledFixitRange = CharSourceRange(fixitRange, false);
     if (!m_including_qcontainerfwd) {
         replacement += "#include <QtCore/qcontainerfwd.h>\n";
@@ -156,8 +139,9 @@ void Qt6FwdFixes::VisitDecl(clang::Decl *decl)
     message += "Using forward declaration of ";
     message += recDecl->getNameAsString();
     message += ".";
-    if (m_including_qcontainerfwd)
+    if (m_including_qcontainerfwd) {
         message += " (already)";
+    }
     message += " Including <QtCore/qcontainerfwd.h> instead.";
 
     emitWarning(warningLocation, message, fixits);
@@ -165,9 +149,16 @@ void Qt6FwdFixes::VisitDecl(clang::Decl *decl)
     return;
 }
 
-void Qt6FwdFixes::VisitInclusionDirective(clang::SourceLocation HashLoc, const clang::Token &IncludeTok, clang::StringRef FileName, bool IsAngled,
-                        clang::CharSourceRange FilenameRange, clazy::OptionalFileEntryRef File, clang::StringRef SearchPath,
-                        clang::StringRef RelativePath, const clang::Module *Imported, clang::SrcMgr::CharacteristicKind FileType)
+void Qt6FwdFixes::VisitInclusionDirective(clang::SourceLocation HashLoc,
+                                          const clang::Token & /*IncludeTok*/,
+                                          clang::StringRef FileName,
+                                          bool /*IsAngled*/,
+                                          clang::CharSourceRange /*FilenameRange*/,
+                                          clazy::OptionalFileEntryRef /*File*/,
+                                          clang::StringRef /*SearchPath*/,
+                                          clang::StringRef /*RelativePath*/,
+                                          const clang::Module * /*Imported*/,
+                                          clang::SrcMgr::CharacteristicKind /*FileType*/)
 {
     auto current_file = m_sm.getFilename(HashLoc);
     if (FileName.str() == "QtCore/qcontainerfwd.h") {

@@ -1,7 +1,13 @@
 {
-    "tests" : [
+    "tests": [
         {
-            "filename" : "main.cpp"
+            "filename": "main.cpp",
+            "has_fixits": true
+        },
+        {
+            "filename": "colorfromstring.cpp",
+            "has_fixits": true,
+            "qt_major_versions": [6]
         }
     ]
 }

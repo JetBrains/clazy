@@ -1,32 +1,16 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2015 Klarälvdalens Datakonsult AB a KDAB Group company info@kdab.com
+    SPDX-FileContributor: Sérgio Martins <sergio.martins@kdab.com>
 
-    Copyright (C) 2015 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
-    Author: Sérgio Martins <sergio.martins@kdab.com>
+    SPDX-FileCopyrightText: 2015 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2015 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "qgetenv.h"
-#include "Utils.h"
-#include "StringUtils.h"
 #include "FixItUtils.h"
-#include "SourceCompatibilityHelpers.h"
+#include "StringUtils.h"
+#include "Utils.h"
 
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
@@ -43,7 +27,6 @@
 class ClazyContext;
 
 using namespace clang;
-using namespace std;
 
 QGetEnv::QGetEnv(const std::string &name, ClazyContext *context)
     : CheckBase(name, context, Option_CanIgnoreIncludes)
@@ -56,32 +39,34 @@ void QGetEnv::VisitStmt(clang::Stmt *stmt)
     // to implicit cast to bool when checking pointers for validity, like if (ptr)
 
     auto *memberCall = dyn_cast<CXXMemberCallExpr>(stmt);
-    if (!memberCall)
+    if (!memberCall) {
         return;
+    }
 
     CXXMethodDecl *method = memberCall->getMethodDecl();
-    if (!method)
+    if (!method) {
         return;
+    }
 
-    CXXRecordDecl *record = method->getParent();
-    if (!record || clazy::name(record) != "QByteArray") {
+    if (CXXRecordDecl *record = method->getParent(); !record || clazy::name(record) != "QByteArray") {
         return;
     }
 
     std::vector<CallExpr *> calls = Utils::callListForChain(memberCall);
-    if (calls.size() != 2)
+    if (calls.size() != 2) {
         return;
+    }
 
     CallExpr *qgetEnvCall = calls.back();
-
-    FunctionDecl *func = qgetEnvCall->getDirectCallee();
-
-    if (!func || clazy::name(func) != "qgetenv")
+    if (FunctionDecl *func = qgetEnvCall->getDirectCallee(); !func || clazy::name(func) != "qgetenv") {
         return;
+    }
 
     StringRef methodname = clazy::name(method);
-    string errorMsg;
+    std::string errorMsg;
     std::string replacement;
+    bool shouldIncludeOkParameter = false;
+    bool changesToBaseAutodetection = false;
     if (methodname == "isEmpty") {
         errorMsg = "qgetenv().isEmpty() allocates.";
         replacement = "qEnvironmentVariableIsEmpty";
@@ -91,16 +76,36 @@ void QGetEnv::VisitStmt(clang::Stmt *stmt)
     } else if (methodname == "toInt") {
         errorMsg = "qgetenv().toInt() is slow.";
         replacement = "qEnvironmentVariableIntValue";
-    }
-
-    if (!errorMsg.empty()) {
-        std::vector<FixItHint> fixits;
-        const bool success = clazy::transformTwoCallsIntoOne(&m_astContext, qgetEnvCall, memberCall, replacement, fixits);
-        if (!success) {
-            queueManualFixitWarning(clazy::getLocStart(memberCall));
+        for (unsigned int i = 0; i < memberCall->getNumArgs(); ++i) {
+            auto *arg = memberCall->getArg(i);
+            if (i == 0 && !isa<CXXDefaultArgExpr>(arg)) {
+                if (!isa<CastExpr>(arg) || !isa<CXXNullPtrLiteralExpr>(dyn_cast<CastExpr>(arg)->getSubExpr())) {
+                    shouldIncludeOkParameter = true;
+                }
+            } else if (i == 1) {
+                if (auto *intLiteral = dyn_cast<IntegerLiteral>(arg)) {
+                    if (intLiteral->getValue() != 0) {
+                        return; // Custom base is specified - ignore this case
+                    }
+                } else if (isa<CXXDefaultArgExpr>(arg)) {
+                    changesToBaseAutodetection = true;
+                } else {
+                    return; // If the base is neither the 0 literal or the default, skip checking it
+                }
+            }
         }
-
-        errorMsg += " Use " + replacement + "() instead";
-        emitWarning(clazy::getLocStart(memberCall), errorMsg.c_str(), fixits);
+    } else {
+        return; // Some different method on QByteArray, nothing to warn about
     }
+
+    std::string getEnvArgStr = Lexer::getSourceText(CharSourceRange::getTokenRange(qgetEnvCall->getArg(0)->getSourceRange()), sm(), lo()).str();
+    if (shouldIncludeOkParameter) {
+        getEnvArgStr += ", " + Lexer::getSourceText(CharSourceRange::getTokenRange(memberCall->getArg(0)->getSourceRange()), sm(), lo()).str();
+    }
+
+    errorMsg += " Use " + replacement + "() instead";
+    if (changesToBaseAutodetection) {
+        errorMsg += ". This uses internally a base of 0, supporting decimal, hex and octal values";
+    }
+    emitWarning(memberCall->getBeginLoc(), errorMsg, {FixItHint::CreateReplacement(stmt->getSourceRange(), replacement + "(" + getEnvArgStr + ")")});
 }

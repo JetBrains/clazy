@@ -10,8 +10,8 @@ SET(README_manuallevel_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qproperty-type-mismatch.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qrequiredresult-candidates.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qstring-varargs.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt-keyword-emit.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt-keywords.md
-    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt4-qstring-from-array.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-deprecated-api-fixes.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-fwd-fixes.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qt6-header-fixes.md
@@ -20,11 +20,13 @@ SET(README_manuallevel_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qvariant-template-instantiation.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-raw-environment-function.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-reserve-candidates.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-sanitize-inline-keyword.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-signal-with-return-value.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-thread-with-slots.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-tr-non-literal.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-unexpected-flag-enumerator-value.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-unneeded-cast.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-unused-result-check.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-use-arrow-operator-instead-of-data.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-use-chrono-in-qtimer.md
 )
@@ -40,6 +42,7 @@ SET(README_LEVEL0_FILES
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-lambda-unique-connection.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-lowercase-qml-type-name.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-mutable-container-key.md
+    ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-no-module-include.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-overloaded-signal.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qcolor-from-literal.md
     ${CMAKE_CURRENT_LIST_DIR}/docs/checks/README-qdatetime-utc.md

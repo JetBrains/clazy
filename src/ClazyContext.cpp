@@ -1,29 +1,14 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2017 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2017 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
-#include "AccessSpecifierManager.h"
-#include "checkmanager.h"
 #include "ClazyContext.h"
+#include "AccessSpecifierManager.h"
 #include "FixItExporter.h"
 #include "PreProcessorVisitor.h"
+#include "checkmanager.h"
 
 #include <clang/AST/ParentMap.h>
 #include <clang/Frontend/CompilerInstance.h>
@@ -33,14 +18,14 @@
 
 #include <stdlib.h>
 
-using namespace std;
 using namespace clang;
 
-
 ClazyContext::ClazyContext(const clang::CompilerInstance &compiler,
-                           const string &headerFilter, const string &ignoreDirs,
-                           string exportFixesFilename,
-                           const std::vector<string> &translationUnitPaths, ClazyOptions opts)
+                           const std::string &headerFilter,
+                           const std::string &ignoreDirs,
+                           std::string exportFixesFilename,
+                           const std::vector<std::string> &translationUnitPaths,
+                           ClazyOptions opts)
     : ci(compiler)
     , astContext(ci.getASTContext())
     , sm(ci.getSourceManager())
@@ -50,11 +35,13 @@ ClazyContext::ClazyContext(const clang::CompilerInstance &compiler,
     , extraOptions(clazy::splitString(getenv("CLAZY_EXTRA_OPTIONS"), ','))
     , m_translationUnitPaths(translationUnitPaths)
 {
-    if (!headerFilter.empty())
+    if (!headerFilter.empty()) {
         headerFilterRegex = std::unique_ptr<llvm::Regex>(new llvm::Regex(headerFilter));
+    }
 
-    if (!ignoreDirs.empty())
+    if (!ignoreDirs.empty()) {
         ignoreDirsRegex = std::unique_ptr<llvm::Regex>(new llvm::Regex(ignoreDirs));
+    }
 
     if (exportFixesEnabled()) {
         if (exportFixesFilename.empty()) {
@@ -65,8 +52,7 @@ ClazyContext::ClazyContext(const clang::CompilerInstance &compiler,
         }
 
         const bool isClazyStandalone = !translationUnitPaths.empty();
-        exporter = new FixItExporter(ci.getDiagnostics(), sm, ci.getLangOpts(),
-                                     exportFixesFilename, isClazyStandalone);
+        exporter = new FixItExporter(ci.getDiagnostics(), sm, ci.getLangOpts(), exportFixesFilename, isClazyStandalone);
     }
 
     if (options & ClazyOption_CLionMode)
@@ -75,7 +61,7 @@ ClazyContext::ClazyContext(const clang::CompilerInstance &compiler,
 
 ClazyContext::~ClazyContext()
 {
-    //delete preprocessorVisitor; // we don't own it
+    // delete preprocessorVisitor; // we don't own it
     delete accessSpecifierManager;
     delete parentMap;
 
@@ -87,8 +73,9 @@ ClazyContext::~ClazyContext()
         // write out the last one. With clazy-plugin there's a YAML file per translation unit.
         const bool isClazyPlugin = m_translationUnitPaths.empty();
         const bool isLast = count == m_translationUnitPaths.size();
-        if (isLast || isClazyPlugin)
+        if (isLast || isClazyPlugin) {
             exporter->Export();
+        }
         delete exporter;
     }
 
@@ -99,14 +86,16 @@ ClazyContext::~ClazyContext()
 
 void ClazyContext::enableAccessSpecifierManager()
 {
-    if (!accessSpecifierManager && !usingPreCompiledHeaders())
+    if (!accessSpecifierManager && !usingPreCompiledHeaders()) {
         accessSpecifierManager = new AccessSpecifierManager(this);
+    }
 }
 
 void ClazyContext::enablePreprocessorVisitor()
 {
-    if (!preprocessorVisitor && !usingPreCompiledHeaders())
+    if (!preprocessorVisitor && !usingPreCompiledHeaders()) {
         preprocessorVisitor = new PreProcessorVisitor(ci);
+    }
 }
 
 void ClazyContext::enableVisitallTypeDefs()
@@ -124,12 +113,13 @@ bool ClazyContext::visitsAllTypedefs() const
 bool ClazyContext::isQt() const
 {
     static const bool s_isQt = [this] {
-                                   for (auto s : ci.getPreprocessorOpts().Macros) {
-                                       if (s.first == "QT_CORE_LIB")
-                                           return true;
-                                   }
-                                   return false;
-                               } ();
+        for (const auto &s : ci.getPreprocessorOpts().Macros) {
+            if (s.first == "QT_CORE_LIB") {
+                return true;
+            }
+        }
+        return false;
+    }();
 
     return s_isQt;
 }

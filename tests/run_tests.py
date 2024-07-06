@@ -3,7 +3,6 @@
 import sys
 import os
 import subprocess
-import string
 import re
 import json
 import threading
@@ -21,6 +20,15 @@ os.chdir(os.path.realpath(os.path.dirname(sys.argv[0])))
 _verbose = False
 _hasStdFileSystem = True
 
+c_headerpath = False
+try:
+    result = subprocess.run(['clang', '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+    match = re.search(r'Selected .* installation: (.*)', result.stderr)
+    if match:
+        c_headerpath = match.group(1).strip()
+except:
+    pass
+
 
 def isWindows():
     return _platform == 'win32'
@@ -37,34 +45,40 @@ class QtInstallation:
         self.qmake_header_path = "/usr/include/qt/"
         self.qmake_lib_path = "/usr/lib"
 
-    def compiler_flags(self):
-
+    def compiler_flags(self, module_includes = False):
         extra_includes = ''
         if isMacOS():
             extra_includes = " -I%s/QtCore.framework/Headers" % self.qmake_lib_path
             extra_includes += " -iframework %s" % self.qmake_lib_path
 
-        return "-isystem " + self.qmake_header_path + ("" if isWindows() else " -fPIC") + " -L " + self.qmake_lib_path + extra_includes
+        # Also include the modules folders
+        qt_modules_includes = []
+        if module_includes:
+            qt_modules_includes = ["-isystem " + self.qmake_header_path + "/" + f for f in next(os.walk(self.qmake_header_path))[1]];
+        c_header_option = ""
+        if c_headerpath:
+            c_header_option = "-isystem " + c_headerpath + "/include "
+
+        return c_header_option + "-isystem " + self.qmake_header_path + ("" if isWindows() else " -fPIC") + " -L " + self.qmake_lib_path + ' ' + extra_includes + ' '.join(qt_modules_includes)
 
 
 class Test:
     def __init__(self, check):
         self.filenames = []
         self.minimum_qt_version = 500
-        self.maximum_qt_version = 59999
+        self.maximum_qt_version = 69999
         self.minimum_clang_version = 380
         self.minimum_clang_version_for_fixits = 380
         self.compare_everything = False
         self.link = False  # If true we also call the linker
         self.check = check
         self.expects_failure = False
-        self.qt_major_version = 5  # Tests use Qt 5 by default
+        self.qt_major_versions = [5, 6]
         self.env = os.environ
         self.checks = []
         self.flags = ""
         self.must_fail = False
         self.blacklist_platforms = []
-        self.qt4compat = False
         self.only_qt = False
         self.qt_developer = False
         self.header_filter = ""
@@ -72,8 +86,11 @@ class Test:
         self.has_fixits = False
         self.should_run_fixits_test = False
         self.should_run_on_32bit = True
-        self.cppStandard = "c++14"
+        self.cppStandards = ["c++14", "c++17"]
         self.requires_std_filesystem = False
+        self.extra_definitions = False
+        self.qt_modules_includes = False
+        self.fixed_file_base = None
 
     def filename(self):
         if len(self.filenames) == 1:
@@ -107,9 +124,9 @@ class Test:
     def dir(self):
         return self.check.name
 
-    def setQtMajorVersion(self, major_version):
-        if major_version == 4:
-            self.qt_major_version = 4
+    def setQtMajorVersions(self, major_versions):
+        self.qt_major_versions = major_versions
+        if 4 in major_versions:
             if self.minimum_qt_version >= 500:
                 self.minimum_qt_version = 400
 
@@ -127,10 +144,14 @@ class Test:
 
             self.env[key] = e[key]
 
-    def printableName(self, is_standalone, is_fixits):
+    def printableName(self, cppStandard, qt_major_version, is_standalone, is_fixits):
         name = self.check.name
         if len(self.check.tests) > 1:
             name += "/" + self.filename()
+        if len(cppStandard) > 0:
+            name += " (" + cppStandard + ")"
+        if qt_major_version > 0:
+            name += " (Qt " + str(qt_major_version) + ")"
         if is_fixits and is_standalone:
             name += " (standalone, fixits)"
         elif is_standalone:
@@ -152,7 +173,7 @@ class Check:
         self.name = name
         self.minimum_clang_version = 380  # clang 3.8.0
         self.minimum_qt_version = 500
-        self.maximum_qt_version = 59999
+        self.maximum_qt_version = 69999
         self.enabled = True
         self.clazy_standalone_only = False
         self.tests = []
@@ -160,11 +181,11 @@ class Check:
 # utility functions #1
 
 
-def get_command_output(cmd, test_env=os.environ, cwd=None):
+def get_command_output(cmd, test_env=os.environ, cwd=None, ignore_verbose=False):
     success = True
 
     try:
-        if _verbose:
+        if _verbose and not ignore_verbose:
             print(cmd)
 
         # Polish up the env to fix "TypeError: environment can only contain strings" exception
@@ -250,8 +271,8 @@ def load_json(check_name):
                 test.compare_everything = t['compare_everything']
             if 'link' in t:
                 test.link = t['link']
-            if 'qt_major_version' in t:
-                test.setQtMajorVersion(t['qt_major_version'])
+            if 'qt_major_versions' in t:
+                test.setQtMajorVersions(t['qt_major_versions'])
             if 'env' in t:
                 test.setEnv(t['env'])
             if 'checks' in t:
@@ -264,14 +285,14 @@ def load_json(check_name):
                 test.has_fixits = t['has_fixits'] and test.minimum_clang_version_for_fixits <= CLANG_VERSION
             if 'expects_failure' in t:
                 test.expects_failure = t['expects_failure']
-            if 'qt4compat' in t:
-                test.qt4compat = t['qt4compat']
             if 'only_qt' in t:
                 test.only_qt = t['only_qt']
-            if 'cppStandard' in t:
-                test.cppStandard = t['cppStandard']
+            if 'cppStandards' in t:
+                test.cppStandards = t['cppStandards']
             if 'qt_developer' in t:
                 test.qt_developer = t['qt_developer']
+            if 'extra_definitions' in t:
+                test.extra_definitions = " " + t['extra_definitions'] + " "
             if 'header_filter' in t:
                 test.header_filter = t['header_filter']
             if 'ignore_dirs' in t:
@@ -280,6 +301,8 @@ def load_json(check_name):
                 test.should_run_on_32bit = t['should_run_on_32bit']
             if 'requires_std_filesystem' in t:
                 test.requires_std_filesystem = t['requires_std_filesystem']
+            if 'qt_modules_includes' in t:
+                test.qt_modules_includes = t['qt_modules_includes']
 
             if not test.checks:
                 test.checks.append(test.check.name)
@@ -293,8 +316,7 @@ def find_qt_installation(major_version, qmakes):
     installation = QtInstallation()
 
     for qmake in qmakes:
-        qmake_version_str, success = get_command_output(
-            qmake + " -query QT_VERSION")
+        qmake_version_str, success = get_command_output(qmake + " -query QT_VERSION")
         if success and qmake_version_str.startswith(str(major_version) + "."):
             qmake_header_path = get_command_output(
                 qmake + " -query QT_INSTALL_HEADERS")[0].strip()
@@ -312,14 +334,15 @@ def find_qt_installation(major_version, qmakes):
                           " using qmake " + qmake)
             break
 
-    if installation.int_version == 0 and major_version >= 5:  # Don't warn for missing Qt4 headers
-        print("Error: Couldn't find a Qt" +
-              str(major_version) + " installation")
+    if installation.int_version == 0:
+        print("Error: Couldn't find a Qt" + str(major_version) + " installation")
     return installation
 
 
 def libraryName():
-    if _platform == 'win32':
+    if 'CLAZYPLUGIN_CXX' in os.environ: # Running tests uninstalled
+        return os.environ['CLAZYPLUGIN_CXX']
+    elif _platform == 'win32':
         return 'ClazyPlugin.dll'
     elif _platform == 'darwin':
         return 'ClazyPlugin.dylib'
@@ -327,20 +350,19 @@ def libraryName():
         return 'ClazyPlugin.so'
 
 
-def link_flags():
-    flags = "-lQt5Core -lQt5Gui -lQt5Widgets"
+def link_flags(qt:QtInstallation):
+    is_qt6 = qt.int_version > 60000
+    major_version = "6" if is_qt6 else "5"
+    flags = f"-lQt{major_version}Core -lQt{major_version}Gui -lQt{major_version}Widgets"
     if _platform.startswith('linux'):
         flags += " -lstdc++"
+        if is_qt6:
+            flags += " -lQt6StateMachine"
     return flags
 
 
 def clazy_cpp_args(cppStandard):
-    return '-Wno-unused-value -Qunused-arguments -std=' + cppStandard + ' '
-
-
-def more_clazy_args(cppStandard):
-    return " " + clazy_cpp_args(cppStandard)
-
+    return ' -Wno-unused-value -Qunused-arguments -std=' + cppStandard + ' '
 
 def clazy_standalone_binary():
     if 'CLAZYSTANDALONE_CXX' in os.environ:  # in case we want to use "clazy.AppImage --standalone" instead
@@ -352,17 +374,14 @@ def more_clazy_standalone_args():
         return ' -I ' + os.environ['CLANG_BUILTIN_INCLUDE_DIR']
     return ''
 
-def clazy_standalone_command(test, qt):
-    result = " -- " + clazy_cpp_args(test.cppStandard) + \
-        qt.compiler_flags() + " " + test.flags + more_clazy_standalone_args()
-    result = " -checks=" + ','.join(test.checks) + " " + result
+def clazy_standalone_command(test, cppStandard, qt):
+    result = " -- " + clazy_cpp_args(cppStandard) + \
+        qt.compiler_flags(test.qt_modules_includes) + " " + test.flags + more_clazy_standalone_args()
+    result = " -checks=" + ','.join(test.checks) + " " + result + suppress_line_numbers_opt
 
     if test.has_fixits:
         result = " -export-fixes=" + \
             test.yamlFilename(is_standalone=True) + result
-
-    if test.qt4compat:
-        result = " -qt4-compat " + result
 
     if test.only_qt:
         result = " -only-qt " + result
@@ -376,36 +395,34 @@ def clazy_standalone_command(test, qt):
     if test.ignore_dirs:
         result = " -ignore-dirs " + test.ignore_dirs + " " + result
 
+    if test.extra_definitions:
+        result += test.extra_definitions
+
     return result
 
 def clang_name():
     return os.getenv('CLANGXX', 'clang')
 
-def clazy_command(qt, test, filename):
+def clazy_command(test, cppStandard, qt, filename):
     if test.isScript():
         return "./" + filename
 
     if 'CLAZY_CXX' in os.environ:  # In case we want to use clazy.bat
-        result = os.environ['CLAZY_CXX'] + \
-            more_clazy_args(test.cppStandard) + qt.compiler_flags()
+        result = os.environ['CLAZY_CXX']
     else:
-        clang = clang_name()
-        result = clang + " -Xclang -load -Xclang " + libraryName() + \
-            " -Xclang -add-plugin -Xclang clazy " + \
-            more_clazy_args(test.cppStandard) + qt.compiler_flags()
-
-    if test.qt4compat:
-        result = result + " -Xclang -plugin-arg-clazy -Xclang qt4-compat "
+        result = clang_name() + " -Xclang -load -Xclang " + libraryName() + " -Xclang -add-plugin -Xclang clazy " 
+    result += clazy_cpp_args(cppStandard) + qt.compiler_flags(test.qt_modules_includes) + suppress_line_numbers_opt 
 
     if test.only_qt:
         result = result + " -Xclang -plugin-arg-clazy -Xclang only-qt "
-
     if test.qt_developer:
         result = result + " -Xclang -plugin-arg-clazy -Xclang qt-developer "
+    if test.extra_definitions:
+        result += test.extra_definitions
 
     # Linking on one platform is enough. Won't waste time on macOS and Windows.
     if test.link and _platform.startswith('linux'):
-        result = result + " " + link_flags()
+        result = result + " " + link_flags(qt)
     else:
         result = result + " -c "
 
@@ -418,9 +435,8 @@ def clazy_command(qt, test, filename):
     return result
 
 
-def dump_ast_command(test):
-    return "clang -std=c++14 -fsyntax-only -Xclang -ast-dump -fno-color-diagnostics -c " + qt_installation(test.qt_major_version).compiler_flags() + " " + test.flags + " " + test.filename()
-
+def dump_ast_command(test, cppStandard, qt_major_version):
+    return "clang -std=" + cppStandard + " -fsyntax-only -Xclang -ast-dump -fno-color-diagnostics -c " + qt_installation(qt_major_version).compiler_flags(test.qt_modules_includes) + " " + test.flags + " " + test.filename()
 
 def compiler_name():
     if 'CLAZY_CXX' in os.environ:
@@ -443,6 +459,8 @@ parser.add_argument("--dump-ast", action='store_true',
                     help='Dump a unit-test AST to file')
 parser.add_argument(
     "--exclude", help='Comma separated list of checks to ignore')
+parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
+                    help='Parallel jobs to run (defaults to %(default)s)')
 parser.add_argument("check_names", nargs='*',
                     help="The name of the check whose unit-tests will be run. Defaults to running all checks.")
 args = parser.parse_args()
@@ -460,20 +478,20 @@ _verbose = args.verbose
 _no_standalone = args.no_standalone
 _no_fixits = args.no_fixits
 _only_standalone = args.only_standalone
-_num_threads = multiprocessing.cpu_count()
+_num_threads = args.jobs
 _lock = threading.Lock()
 _was_successful = True
+_qt6_installation = find_qt_installation(
+    6, ["QT_SELECT=6 qmake", "qmake-qt6", "qmake", "qmake6"])
 _qt5_installation = find_qt_installation(
-    5, ["QT_SELECT=5 qmake", "qmake-qt5", "qmake"])
-_qt4_installation = find_qt_installation(
-    4, ["QT_SELECT=4 qmake", "qmake-qt4", "qmake"])
+    5, ["QT_SELECT=5 qmake", "qmake-qt5", "qmake", "qmake5"])
 _excluded_checks = args.exclude.split(',') if args.exclude is not None else []
 
 # -------------------------------------------------------------------------------
 # utility functions #2
 
 version, success = get_command_output(compiler_name() + ' --version')
-match = re.search('clang version (.*?)[ -]', version)
+match = re.search('clang version ([^\s-]+)', version)
 try:
     version = match.group(1)
 except:
@@ -495,18 +513,20 @@ if _verbose:
 
 CLANG_VERSION = int(version.replace('.', ''))
 
+suppress_line_numbers_opt = ""
+if CLANG_VERSION >= 1700: # See https://releases.llvm.org/17.0.1/tools/clang/docs/ReleaseNotes.html
+    suppress_line_numbers_opt = " -fno-diagnostics-show-line-numbers"
 
 def qt_installation(major_version):
-    if major_version == 5:
+    if major_version == 6:
+        return _qt6_installation
+    elif major_version == 5:
         return _qt5_installation
-    elif major_version == 4:
-        return _qt4_installation
-
     return None
 
 
-def run_command(cmd, output_file="", test_env=os.environ, cwd=None):
-    lines, success = get_command_output(cmd, test_env, cwd=cwd)
+def run_command(cmd, output_file="", test_env=os.environ, cwd=None, ignore_verbose_command=False):
+    lines, success = get_command_output(cmd, test_env, cwd=cwd, ignore_verbose=ignore_verbose_command)
     # Hack for Windows, we have std::_Vector_base in the expected data
     lines = lines.replace("std::_Container_base0", "std::_Vector_base")
     lines = lines.replace("std::__1::__vector_base_common",
@@ -521,11 +541,13 @@ def run_command(cmd, output_file="", test_env=os.environ, cwd=None):
         print("output_file=" + output_file)
 
     lines = lines.replace('\r\n', '\n')
+    if len(lines) > 0 and lines[-1] == "\n":
+        lines = lines[:-1] # remove trailing empty line, often it's the only output
     if output_file:
         f = io.open(output_file, 'w', encoding='utf8')
         f.writelines(lines)
         f.close()
-    else:
+    elif len(lines) > 0:
         print(lines)
 
     return success
@@ -670,38 +692,42 @@ def is32Bit():
     return platform.architecture()[0] == '32bit'
 
 
-def run_unit_test(test, is_standalone):
+def run_unit_test(test, is_standalone, cppStandard, qt_major_version):
     if test.check.clazy_standalone_only and not is_standalone:
         return True
 
-    qt = qt_installation(test.qt_major_version)
+    qt = qt_installation(qt_major_version)
 
     if _verbose:
-        print
-        print("Qt version: " + str(qt.int_version))
+        print("Qt major versions required by the test: " + str(test.qt_major_versions))
+        print("Currently considering Qt major version: " + str(qt_major_version))
+        print("Qt versions required by the test: min=" + str(test.minimum_qt_version) + " max=" + str(test.maximum_qt_version))
+        print("Qt int version: " + str(qt.int_version))
         print("Qt headers: " + qt.qmake_header_path)
+
+    printableName = test.printableName(cppStandard, qt_major_version, is_standalone, False)
 
     if qt.int_version < test.minimum_qt_version or qt.int_version > test.maximum_qt_version or CLANG_VERSION < test.minimum_clang_version:
         if (_verbose):
-            print("Skipping " + test.check.name +
+            print("Skipping " + printableName +
                   " because required version is not available")
         return True
 
     if test.requires_std_filesystem and not _hasStdFileSystem:
         if (_verbose):
-            print("Skipping " + test.check.name +
+            print("Skipping " + printableName +
                   " because it requires std::filesystem")
         return True
 
     if _platform in test.blacklist_platforms:
         if (_verbose):
-            print("Skipping " + test.check.name +
+            print("Skipping " + printableName +
                   " because it is blacklisted for this platform")
         return True
 
     if not test.should_run_on_32bit and is32Bit():
         if (_verbose):
-            print("Skipping " + test.check.name +
+            print("Skipping " + printableName +
                   " because it is blacklisted on 32bit")
         return True
 
@@ -711,6 +737,8 @@ def run_unit_test(test, is_standalone):
     output_file = filename + ".out"
     result_file = filename + ".result"
     expected_file = filename + ".expected"
+    if not os.path.exists(expected_file):
+        expected_file = filename + ".qt" + str(qt_major_version) + ".expected"
 
     # Some tests have different output on 32 bit
     if is32Bit() and os.path.exists(expected_file + '.x86'):
@@ -721,28 +749,27 @@ def run_unit_test(test, is_standalone):
 
     if is_standalone:
         cmd_to_run = clazy_standalone_binary() + " " + filename + " " + \
-            clazy_standalone_command(test, qt)
+            clazy_standalone_command(test, cppStandard, qt)
     else:
-        cmd_to_run = clazy_command(qt, test, filename)
+        cmd_to_run = clazy_command(test, cppStandard, qt, filename)
 
     if test.compare_everything:
         result_file = output_file
 
     must_fail = test.must_fail
 
-    cmd_success = run_command(cmd_to_run, output_file, test.env)
+    cmd_success = run_command(cmd_to_run, output_file, test.env, ignore_verbose_command=True)
 
     if file_contains(output_file, 'Invalid check: '):
         return True
 
     if (not cmd_success and not must_fail) or (cmd_success and must_fail):
-        print("[FAIL] " + checkname +
+        print("[FAIL] " + printableName +
               " (Failed to build test. Check " + output_file + " for details)")
         print("-------------------")
         print("Contents of %s:" % output_file)
         print_file(output_file)
         print("-------------------")
-        print
         return False
 
     if not test.compare_everything:
@@ -750,7 +777,7 @@ def run_unit_test(test, is_standalone):
         extract_word(word_to_grep, output_file, result_file)
 
     # Check that it printed the expected warnings
-    if not compare_files(test.expects_failure, expected_file, result_file, test.printableName(is_standalone, False)):
+    if not compare_files(test.expects_failure, expected_file, result_file, printableName):
         return False
 
     if test.has_fixits:
@@ -759,17 +786,29 @@ def run_unit_test(test, is_standalone):
 
     return True
 
+def run_unit_test_for_each_configuration(test, is_standalone):
+    if test.check.clazy_standalone_only and not is_standalone:
+        return True
+    result = True
+    for qt_major_version in test.qt_major_versions:
+        for cppStandard in test.cppStandards:
+            if cppStandard == "c++14" and qt_major_version == 6: # Qt6 requires C++17
+                continue
+            if cppStandard == "c++17" and qt_major_version == 5 and len(test.cppStandards) > 1: # valid combination but let's skip it unless it was the only specified standard
+                continue
+            result = result and run_unit_test(test, is_standalone, cppStandard, qt_major_version)
+    return result
 
 def run_unit_tests(tests):
     result = True
     for test in tests:
         test_result = True
         if not _only_standalone:
-            test_result = run_unit_test(test, False)
+            test_result = run_unit_test_for_each_configuration(test, False)
             result = result and test_result
 
         if not _no_standalone:
-            test_result = test_result and run_unit_test(test, True)
+            test_result = test_result and run_unit_test_for_each_configuration(test, True)
             result = result and test_result
 
         if not test_result:
@@ -808,7 +847,7 @@ def compare_fixit_results(test, is_standalone):
         return True
 
     # Check that the rewritten file is identical to the expected one
-    if not compare_files(False, test.expectedFixedFilename(), test.fixedFilename(is_standalone), test.printableName(is_standalone, True)):
+    if not compare_files(False, test.expectedFixedFilename(), test.fixedFilename(is_standalone), test.printableName("", 0, is_standalone, True)):
         return False
 
     # Some fixed cpp files have an header that was also fixed. Compare it here too.
@@ -816,7 +855,7 @@ def compare_fixit_results(test, is_standalone):
     if os.path.exists(possible_headerfile_expected):
         possible_headerfile = test.fixedFilename(
             is_standalone).replace('.cpp', '.h')
-        if not compare_files(False, possible_headerfile_expected, possible_headerfile, test.printableName(is_standalone, True).replace('.cpp', '.h')):
+        if not compare_files(False, possible_headerfile_expected, possible_headerfile, test.printableName("", 0, is_standalone, True).replace('.cpp', '.h')):
             return False
 
     return True
@@ -832,6 +871,10 @@ def run_fixit_tests(requested_checks):
         requested_checks, is_standalone=True) and success
 
     for check in requested_checks:
+
+        if not any(map(lambda test : test.should_run_fixits_test, check.tests)):
+            continue
+
         # Call clazy-apply-replacements[.exe]
         if not run_clang_apply_replacements(check):
             return False
@@ -853,9 +896,14 @@ def run_fixit_tests(requested_checks):
 
 def dump_ast(check):
     for test in check.tests:
-        ast_filename = test.filename() + ".ast"
-        run_command(dump_ast_command(test) + " > " + ast_filename)
-        print("Dumped AST to " + os.getcwd() + "/" + ast_filename)
+        for cppStandard in test.cppStandards:
+            for version in test.qt_major_versions:
+                if version == 6 and cppStandard == "c++14":
+                    continue # Qt6 requires C++17
+                ast_filename = test.filename() + f"_{cppStandard}_{version}.ast"
+                run_command(dump_ast_command(test, cppStandard, version) + " > " + ast_filename)
+                print("Dumped AST to " + os.getcwd() + "/" + ast_filename)
+
 # -------------------------------------------------------------------------------
 def load_checks(all_check_names):
     checks = []
@@ -867,7 +915,6 @@ def load_checks(all_check_names):
         except:
             print("Error while loading " + name)
             raise
-            sys.exit(-1)
     return checks
 # -------------------------------------------------------------------------------
 def try_compile(filename):
@@ -878,7 +925,7 @@ def try_compile(filename):
 
 if isLinux():
     # On Windows and macOS we have recent enough toolchains
-    _hasStdFileSystem = try_compile('../.cmake_has_filesystem_test.cpp')
+    _hasStdFileSystem = 'CLAZY_HAS_FILESYSTEM' in os.environ or try_compile('../.cmake_has_filesystem_test.cpp')
 
 if 'CLAZY_NO_WERROR' in os.environ:
     del os.environ['CLAZY_NO_WERROR']
@@ -894,7 +941,6 @@ requested_check_names = list(
 for check_name in requested_check_names:
     if check_name not in all_check_names:
         print("Unknown check: " + check_name)
-        print
         sys.exit(-1)
 
 if not requested_check_names:
@@ -915,7 +961,7 @@ if _dump_ast:
 else:
     cleanup_fixit_files(requested_checks)
     # Each list is a list of Test to be worked on by a thread
-    list_of_chunks = [[] for x in range(_num_threads)]
+    list_of_chunks = [[] for _ in range(_num_threads)]
     i = _num_threads
     for check in requested_checks:
         for test in check.tests:

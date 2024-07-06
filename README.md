@@ -1,13 +1,9 @@
-clazy v1.11
-===========
-
 clazy is a compiler plugin which allows clang to understand Qt semantics. You get more than 50 Qt related compiler warnings, ranging from unneeded memory allocations to misusage of API, including fix-its for automatic refactoring.
 
 Table of contents
 =================
 
    * [Source Code](#source-code)
-   * [Pre-built binaries](#pre-built-binaries)
    * [Build Instructions](#build-instructions)
       * [Linux](#linux)
          * [Install dependencies](#install-dependencies)
@@ -30,7 +26,6 @@ Table of contents
    * [clazy-standalone and JSON database support](#clazy-standalone-and-json-database-support)
    * [Enabling Fixits](#enabling-fixits)
    * [Troubleshooting](#troubleshooting)
-   * [Qt4 compatibility mode](#qt4-compatibility-mode)
    * [Reducing warning noise](#reducing-warning-noise)
    * [Reporting bugs and wishes](#reporting-bugs-and-wishes)
    * [Authors](#authors)
@@ -50,10 +45,6 @@ Clazy has been tested on Linux, macOS and Windows/MSVC.
 Other platforms are not supported but we'll gladly accept patches.
 
 
-# Pre-built binaries
-
-Pre-built clazy binaries for MSVC and Linux AppImage are produced by KDAB, you can get them from https://downloads.kdab.com/clazy/.
-
 # Build Instructions
 ## Linux
 
@@ -65,7 +56,7 @@ Pre-built clazy binaries for MSVC and Linux AppImage are produced by KDAB, you c
 - Other distros: Check llvm/clang build docs.
 
 ### Build and install clang
-clang and LLVM >= 8.0 are required.
+clang and LLVM >= 11.0 are required.
 
 If your distro provides clang then you can skip this step.
 
@@ -94,9 +85,9 @@ See troubleshooting section if you have problems.
 
 ### Build and install clang
 These instructions assume your terminal is suitable for development.
-Ninja (or equivalent), git, cmake, and cl (msvc2019) should be in your PATH.
+Ninja (or equivalent), git, cmake, and cl (msvc2022) should be in your PATH.
 
-clang and LLVM >= 9.0 are required.
+clang and LLVM >= 11.0 are required.
 
 Be sure to pass -DLLVM_EXPORT_SYMBOLS_FOR_PLUGINS=ON to CMake when building LLVM, otherwise clazy won't work.
 
@@ -231,8 +222,8 @@ clazy runs all checks from level1 by default.
     - [qproperty-type-mismatch](docs/checks/README-qproperty-type-mismatch.md)
     - [qrequiredresult-candidates](docs/checks/README-qrequiredresult-candidates.md)
     - [qstring-varargs](docs/checks/README-qstring-varargs.md)
+    - [qt-keyword-emit](docs/checks/README-qt-keyword-emit.md)    (fix-qt-keyword-emit)
     - [qt-keywords](docs/checks/README-qt-keywords.md)    (fix-qt-keywords)
-    - [qt4-qstring-from-array](docs/checks/README-qt4-qstring-from-array.md)    (fix-qt4-qstring-from-array)
     - [qt6-deprecated-api-fixes](docs/checks/README-qt6-deprecated-api-fixes.md)    (fix-qt6-deprecated-api-fixes)
     - [qt6-fwd-fixes](docs/checks/README-qt6-fwd-fixes.md)    (fix-qt6-fwd-fixes)
     - [qt6-header-fixes](docs/checks/README-qt6-header-fixes.md)    (fix-qt6-header-fixes)
@@ -241,11 +232,13 @@ clazy runs all checks from level1 by default.
     - [qvariant-template-instantiation](docs/checks/README-qvariant-template-instantiation.md)
     - [raw-environment-function](docs/checks/README-raw-environment-function.md)
     - [reserve-candidates](docs/checks/README-reserve-candidates.md)
+    - [sanitize-inline-keyword](docs/checks/README-sanitize-inline-keyword.md)    (fix-sanitize-inline-keyword)
     - [signal-with-return-value](docs/checks/README-signal-with-return-value.md)
     - [thread-with-slots](docs/checks/README-thread-with-slots.md)
     - [tr-non-literal](docs/checks/README-tr-non-literal.md)
     - [unexpected-flag-enumerator-value](docs/checks/README-unexpected-flag-enumerator-value.md)
     - [unneeded-cast](docs/checks/README-unneeded-cast.md)
+    - [unused-result-check](docs/checks/README-unused-result-check.md)
     - [use-arrow-operator-instead-of-data](docs/checks/README-use-arrow-operator-instead-of-data.md)
     - [use-chrono-in-qtimer](docs/checks/README-use-chrono-in-qtimer.md)
 
@@ -255,16 +248,17 @@ clazy runs all checks from level1 by default.
     - [connect-not-normalized](docs/checks/README-connect-not-normalized.md)
     - [container-anti-pattern](docs/checks/README-container-anti-pattern.md)
     - [empty-qstringliteral](docs/checks/README-empty-qstringliteral.md)
-    - [fully-qualified-moc-types](docs/checks/README-fully-qualified-moc-types.md)
+    - [fully-qualified-moc-types](docs/checks/README-fully-qualified-moc-types.md)    (fix-fully-qualified-moc-types)
     - [lambda-in-connect](docs/checks/README-lambda-in-connect.md)
     - [lambda-unique-connection](docs/checks/README-lambda-unique-connection.md)
     - [lowercase-qml-type-name](docs/checks/README-lowercase-qml-type-name.md)
     - [mutable-container-key](docs/checks/README-mutable-container-key.md)
+    - [no-module-include](docs/checks/README-no-module-include.md)
     - [overloaded-signal](docs/checks/README-overloaded-signal.md)
-    - [qcolor-from-literal](docs/checks/README-qcolor-from-literal.md)
+    - [qcolor-from-literal](docs/checks/README-qcolor-from-literal.md)    (fix-qcolor-from-literal)
     - [qdatetime-utc](docs/checks/README-qdatetime-utc.md)    (fix-qdatetime-utc)
     - [qenums](docs/checks/README-qenums.md)
-    - [qfileinfo-exists](docs/checks/README-qfileinfo-exists.md)
+    - [qfileinfo-exists](docs/checks/README-qfileinfo-exists.md)    (fix-qfileinfo-exists)
     - [qgetenv](docs/checks/README-qgetenv.md)    (fix-qgetenv)
     - [qmap-with-pointer-key](docs/checks/README-qmap-with-pointer-key.md)
     - [qstring-arg](docs/checks/README-qstring-arg.md)
@@ -377,7 +371,7 @@ $ ln -sf /opt/local/libexec/llvm-8.0/include/c++/ /myprefix/include/c++ # Requir
 
 If that doesn't work, run `clang -v` and check what's the InstalledDir. Move clazy-standalone to that folder.
 
-`clang-tidy` support will be added after <https://bugs.llvm.org//show_bug.cgi?id=32739> is fixed.
+`clang-tidy` support will be added after <https://github.com/llvm/llvm-project/issues/32086> is fixed.
 
 # Enabling Fixits
 
@@ -430,16 +424,6 @@ with each other modifying the same source lines.
 - Windows: fatal error LNK1112: module machine type ‘X86’ conflicts with target machine type ‘x64’
   If you're building in 32-bit, open clazy-cl.bat and insert a -m32 argument.
   Should read: %~dp0\clang\clang.exe –driver-mode=cl -m32 (...)
-
-# Qt4 compatibility mode
-
-When running on codebases that must still compile with Qt4, you can pass `--qt4compat`
-(a convenience option equivalent to passing `-Xclang -plugin-arg-clazy -Xclang qt4-compat`)
-to disable checks that only make sense with Qt5.
-
-For example, to build a CMake project with Qt4 compatibility use:
- `CXX="clazy --qt4compat"; cmake .`
-and rebuild.
 
 # Reducing warning noise
 
@@ -504,6 +488,7 @@ with contributions from:
 - Lucie Gerard
 - Christian Schärf
 - Waqar Ahmed
+- Alexander Lohnau
 
 qt6-* porting checks written by Lucie Gerard <lucie.gerard@qt.io>
 
@@ -514,8 +499,8 @@ and thanks to:
 
 # Contributing patches
 
-New features go to master and bug fixes go to the 1.11 branch.
-The prefered way to contributing is by using KDE's GitLab instance,
+New features go to master and bug fixes go to the last 1.X branch.
+The preferred way to contributing is by using KDE's GitLab instance,
 see <https://community.kde.org/Infrastructure/GitLab>.
 
 If you rather just create a pull request in https://github.com/KDE/clazy for a drive-by change, it's also fine, but beware that

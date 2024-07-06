@@ -1,38 +1,21 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2015 Klarälvdalens Datakonsult AB a KDAB Group company info@kdab.com
+    SPDX-FileContributor: Sérgio Martins <sergio.martins@kdab.com>
 
-    Copyright (C) 2015 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
-    Author: Sérgio Martins <sergio.martins@kdab.com>
+    SPDX-FileCopyrightText: 2015 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2015 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "range-loop-detach.h"
-#include "Utils.h"
-#include "QtUtils.h"
-#include "TypeUtils.h"
-#include "StringUtils.h"
-#include "LoopUtils.h"
-#include "StmtBodyRange.h"
-#include "SourceCompatibilityHelpers.h"
-#include "FixItUtils.h"
 #include "ClazyContext.h"
+#include "FixItUtils.h"
+#include "LoopUtils.h"
 #include "PreProcessorVisitor.h"
+#include "QtUtils.h"
+#include "StmtBodyRange.h"
+#include "TypeUtils.h"
+#include "Utils.h"
 
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
@@ -45,9 +28,9 @@
 class ClazyContext;
 
 using namespace clang;
-using namespace std;
 
-namespace clazy {
+namespace clazy
+{
 /**
  * Returns true if we can prove the container doesn't detach.
  * Returns false otherwise, meaning that you can't conclude anything if false is returned.
@@ -61,36 +44,41 @@ bool containerNeverDetaches(const clang::VarDecl *valDecl, StmtBodyRange bodyRan
 {
     // This helps for bug 367485
 
-    if (!valDecl)
+    if (!valDecl) {
         return false;
+    }
 
-    const auto context = dyn_cast<FunctionDecl>(valDecl->getDeclContext());
-    if (!context)
+    const auto *const context = dyn_cast<FunctionDecl>(valDecl->getDeclContext());
+    if (!context) {
         return false;
+    }
 
     bodyRange.body = context->getBody();
-    if (!bodyRange.body)
+    if (!bodyRange.body) {
         return false;
+    }
 
     if (valDecl->hasInit()) {
-        if (auto cleanupExpr = dyn_cast<clang::ExprWithCleanups>(valDecl->getInit())) {
-            if (auto ce = dyn_cast<clang::CXXConstructExpr>(cleanupExpr->getSubExpr())) {
+        if (const auto *cleanupExpr = dyn_cast<clang::ExprWithCleanups>(valDecl->getInit())) {
+            if (const auto *ce = dyn_cast<clang::CXXConstructExpr>(cleanupExpr->getSubExpr())) {
                 if (!ce->isListInitialization() && !ce->isStdInitListInitialization()) {
                     // When initing via copy or move ctor there's possible detachments.
                     return false;
                 }
+            } else if (dyn_cast<clang::CXXBindTemporaryExpr>(cleanupExpr->getSubExpr())) {
+                return false;
             }
         }
     }
 
     // TODO1: Being passed to a function as const should be OK
-    if (Utils::isPassedToFunction(bodyRange, valDecl, false))
+    if (Utils::isPassedToFunction(bodyRange, valDecl, false)) {
         return false;
+    }
 
     return true;
 }
 }
-
 
 RangeLoopDetach::RangeLoopDetach(const std::string &name, ClazyContext *context)
     : CheckBase(name, context, Option_CanIgnoreIncludes)
@@ -100,7 +88,7 @@ RangeLoopDetach::RangeLoopDetach(const std::string &name, ClazyContext *context)
 
 void RangeLoopDetach::VisitStmt(clang::Stmt *stmt)
 {
-    if (auto rangeLoop = dyn_cast<CXXForRangeStmt>(stmt)) {
+    if (auto *rangeLoop = dyn_cast<CXXForRangeStmt>(stmt)) {
         processForRangeLoop(rangeLoop);
     }
 }
@@ -108,14 +96,15 @@ void RangeLoopDetach::VisitStmt(clang::Stmt *stmt)
 bool RangeLoopDetach::islvalue(Expr *exp, SourceLocation &endLoc)
 {
     if (isa<DeclRefExpr>(exp)) {
-        endLoc = clazy::locForEndOfToken(&m_astContext, clazy::getLocStart(exp));
+        endLoc = clazy::locForEndOfToken(&m_astContext, exp->getBeginLoc());
         return true;
     }
 
-    if (auto me = dyn_cast<MemberExpr>(exp)) {
-        auto decl = me->getMemberDecl();
-        if (!decl || isa<FunctionDecl>(decl))
+    if (auto *me = dyn_cast<MemberExpr>(exp)) {
+        auto *decl = me->getMemberDecl();
+        if (!decl || isa<FunctionDecl>(decl)) {
             return false;
+        }
 
         endLoc = clazy::locForEndOfToken(&m_astContext, me->getMemberLoc());
         return true;
@@ -127,41 +116,49 @@ bool RangeLoopDetach::islvalue(Expr *exp, SourceLocation &endLoc)
 void RangeLoopDetach::processForRangeLoop(CXXForRangeStmt *rangeLoop)
 {
     Expr *containerExpr = rangeLoop->getRangeInit();
-    if (!containerExpr)
+    if (!containerExpr) {
         return;
+    }
 
     QualType qt = containerExpr->getType();
     const Type *t = qt.getTypePtrOrNull();
-    if (!t || !t->isRecordType())
+    if (!t || !t->isRecordType()) {
         return;
+    }
 
-    if (qt.isConstQualified()) // const won't detach
+    if (qt.isConstQualified()) { // const won't detach
         return;
+    }
 
     auto loopVariableType = rangeLoop->getLoopVariable()->getType();
-    if (!clazy::unrefQualType(loopVariableType).isConstQualified() && loopVariableType->isReferenceType())
+    if (!clazy::unrefQualType(loopVariableType).isConstQualified() && loopVariableType->isReferenceType()) {
         return;
+    }
 
     CXXRecordDecl *record = t->getAsCXXRecordDecl();
-    if (!clazy::isQtCOWIterableClass(Utils::rootBaseClass(record)))
+    if (!clazy::isQtCOWIterableClass(Utils::rootBaseClass(record))) {
         return;
+    }
 
-    StmtBodyRange bodyRange(nullptr, &sm(), clazy::getLocStart(rangeLoop));
-    if (clazy::containerNeverDetaches(clazy::containerDeclForLoop(rangeLoop), bodyRange))
+    StmtBodyRange bodyRange(nullptr, &sm(), rangeLoop->getBeginLoc());
+    if (clazy::containerNeverDetaches(clazy::containerDeclForLoop(rangeLoop), bodyRange)) {
         return;
+    }
 
     std::vector<FixItHint> fixits;
 
     SourceLocation end;
-    if (islvalue(containerExpr, /*by-ref*/end)) {
+    if (islvalue(containerExpr, /*by-ref*/ end)) {
         PreProcessorVisitor *preProcessorVisitor = m_context->preprocessorVisitor;
         if (!preProcessorVisitor || preProcessorVisitor->qtVersion() >= 50700) { // qAsConst() was added to 5.7
-            SourceLocation start = clazy::getLocStart(containerExpr);
-            fixits.push_back(clazy::createInsertion(start, "qAsConst("));
-            //SourceLocation end = getLocEnd(containerExpr);
-            fixits.push_back(clazy::createInsertion(end, ")"));
+            clang::SourceRange exprRange = containerExpr->getSourceRange();
+            llvm::StringRef exprText = Lexer::getSourceText(CharSourceRange::getTokenRange(exprRange.getBegin(), exprRange.getEnd()), sm(), lo());
+            std::string insertion = (lo().CPlusPlus17 ? "std::as_const(" : "qAsConst(") + exprText.str() + ")";
+            fixits.push_back(clazy::createReplacement(exprRange, insertion));
         }
     }
 
-    emitWarning(clazy::getLocStart(rangeLoop), "c++11 range-loop might detach Qt container (" + record->getQualifiedNameAsString() + ')', fixits);
+    auto *typedefType = t->getAs<TypedefType>(); // Typedefs in internal Qt code, like QStringList should not be resolved
+    const std::string name = typedefType ? typedefType->getDecl()->getNameAsString() : record->getNameAsString();
+    emitWarning(rangeLoop->getBeginLoc(), "c++11 range-loop might detach Qt container (" + name + ')', fixits);
 }

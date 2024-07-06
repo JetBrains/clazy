@@ -1,28 +1,34 @@
 {
-    "minimum_clang_version" : 370,
-    "tests" : [
+    "minimum_clang_version": 370,
+    "tests": [
         {
-            "filename" : "main.cpp"
+            "filename": "main.cpp"
         },
         {
-            "filename" : "bug374951.cpp",
-            "minimum_qt_version" : 50700
+            "filename": "test_qmetamethod.cpp"
         },
         {
-            "filename" : "392441.cpp",
-            "minimum_qt_version" : 50700
+            "filename": "bug374951.cpp",
+            "minimum_qt_version": 50700
         },
         {
-            "filename" : "bug375239.cpp"
+            "filename": "392441.cpp",
+            "minimum_qt_version": 50700
         },
         {
-            "filename" : "bug375748.cpp"
+            "filename": "bug375239.cpp"
         },
         {
-            "filename" : "bug376137.cpp"
+            "filename": "bug375748.cpp"
         },
         {
-            "filename" : "bug431186.cpp"
+            "filename": "bug376137.cpp"
+        },
+        {
+            "filename": "bug431186.cpp"
+        },
+        {
+            "filename": "signal_as_variable.cpp"
         }
     ]
 }

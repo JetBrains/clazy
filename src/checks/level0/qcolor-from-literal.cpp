@@ -1,28 +1,15 @@
 /*
-  This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2017 Sergio Martins <smartins@kde.org>
+    SPDX-FileCopyrightText: 2023 Alexander Lohnau <alexander.lohnau@gmx.de>
 
-    Copyright (C) 2017 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
-#include "StringUtils.h"
-#include "HierarchyUtils.h"
 #include "qcolor-from-literal.h"
+#include "HierarchyUtils.h"
+#include "StringUtils.h"
 
+#include <cctype>
 #include <clang/AST/Expr.h>
 #include <clang/AST/ExprCXX.h>
 #include <clang/AST/Stmt.h>
@@ -37,45 +24,130 @@ class ClazyContext;
 
 using namespace clang;
 using namespace clang::ast_matchers;
-using namespace std;
 
-// TODO: setNameFromString()
-
-static bool handleStringLiteral(const StringLiteral *literal)
+static bool isSingleDigitRgb(llvm::StringRef ref)
 {
-    if (!literal)
-        return false;
-
-    int length = literal->getLength();
-    if (length != 4 && length != 7 && length != 9 && length != 13)
-        return false;
-
-    llvm::StringRef str = literal->getString();
-    if (!str.starts_with("#"))
-        return false;
-
-    return true;
+    return ref.size() == 4;
+}
+static bool isDoubleDigitRgb(llvm::StringRef ref)
+{
+    return ref.size() == 7;
+}
+static bool isDoubleDigitRgba(llvm::StringRef ref)
+{
+    return ref.size() == 9;
+}
+static bool isTripleDigitRgb(llvm::StringRef ref)
+{
+    return ref.size() == 10;
+}
+static bool isQuadrupleDigitRgb(llvm::StringRef ref)
+{
+    return ref.size() == 13;
 }
 
-class QColorFromLiteral_Callback
-    : public ClazyAstMatcherCallback
+static bool isStringColorLiteralPattern(StringRef str)
+{
+    if (!str.starts_with("#")) {
+        return false;
+    }
+    return isSingleDigitRgb(str) || isDoubleDigitRgb(str) || isDoubleDigitRgba(str) || isTripleDigitRgb(str) || isQuadrupleDigitRgb(str);
+}
+
+class QColorFromLiteral_Callback : public ClazyAstMatcherCallback
 {
 public:
-
-    QColorFromLiteral_Callback(CheckBase *base)
-        : ClazyAstMatcherCallback(base)
-    {
-
-    }
+    using ClazyAstMatcherCallback::ClazyAstMatcherCallback;
 
     void run(const MatchFinder::MatchResult &result) override
     {
-        const StringLiteral *lt = result.Nodes.getNodeAs<StringLiteral>("myLiteral");
-        if (handleStringLiteral(lt))
-            m_check->emitWarning(lt, "The QColor ctor taking ints is cheaper than the one taking string literals");
+        auto *lt = result.Nodes.getNodeAs<StringLiteral>("myLiteral");
+        const Expr *replaceExpr = lt; // When QColor::fromString is used, we want to wrap the QColor constructor around it
+        bool isStaticFromString = false;
+        if (auto res = result.Nodes.getNodeAs<CallExpr>("methodCall"); res && res->getNumArgs() == 1) {
+            if (Expr *argExpr = const_cast<Expr *>(res->getArg(0))) {
+                lt = clazy::getFirstChildOfType<StringLiteral>(argExpr);
+                replaceExpr = res;
+                isStaticFromString = true;
+            }
+        }
+        if (!lt) {
+            return;
+        }
+
+        llvm::StringRef str = lt->getString();
+        if (!str.starts_with("#")) {
+            return;
+        }
+
+        const bool singleDigit = isSingleDigitRgb(str);
+        const bool doubleDigit = isDoubleDigitRgb(str);
+        const bool doubleDigitA = isDoubleDigitRgba(str);
+        if (bool isAnyValidPattern = singleDigit || doubleDigit || doubleDigitA || isTripleDigitRgb(str) || isQuadrupleDigitRgb(str); !isAnyValidPattern) {
+            m_check->emitWarning(replaceExpr->getBeginLoc(), "Pattern length does not match any supported one by QColor, check the documentation");
+            return;
+        }
+
+        for (unsigned int i = 1; i < str.size(); ++i) {
+            if (!isxdigit(str[i])) {
+                m_check->emitWarning(replaceExpr->getBeginLoc(), "QColor pattern may only contain hexadecimal digits");
+                return;
+            }
+        }
+
+        if (singleDigit || doubleDigit || doubleDigitA) {
+            const int increment = singleDigit ? 1 : 2;
+            int endPos = 1;
+            int startPos = 1;
+
+            std::string aColor = doubleDigitA ? getHexValue(str, startPos, endPos, increment) : "";
+            std::string rColor = getHexValue(str, startPos, endPos, increment);
+            std::string gColor = getHexValue(str, startPos, endPos, increment);
+            std::string bColor = getHexValue(str, startPos, endPos, increment);
+
+            std::string fixit;
+            std::string message;
+            if (doubleDigitA) {
+                const static std::string sep = ", ";
+                fixit = prefixHex(rColor) + sep + prefixHex(gColor) + sep + prefixHex(bColor) + sep + prefixHex(aColor);
+                message = "The QColor ctor taking ints is cheaper than one taking string literals";
+            } else {
+                fixit = "0x" + twoDigit(rColor) + twoDigit(gColor) + twoDigit(bColor);
+                message = "The QColor ctor taking RGB int value is cheaper than one taking string literals";
+            }
+            if (isStaticFromString) {
+                fixit = "QColor(" + fixit + ")";
+            }
+            m_check->emitWarning(replaceExpr->getBeginLoc(), message, {clang::FixItHint::CreateReplacement(replaceExpr->getSourceRange(), fixit)});
+        } else {
+            // triple or quadruple digit RGBA
+            m_check->emitWarning(replaceExpr->getBeginLoc(), "The QColor ctor taking QRgba64 is cheaper than one taking string literals");
+        }
+    }
+    inline std::string twoDigit(const std::string &in)
+    {
+        return in.length() == 1 ? in + in : in;
+    }
+    inline std::string prefixHex(const std::string &in)
+    {
+        const static std::string hex = "0x";
+        return in == "0" ? in : hex + in;
+    }
+    inline std::string getHexValue(StringRef fullStr, int &startPos, int &endPos, int increment) const
+    {
+        endPos += increment;
+        clang::StringRef color = fullStr.slice(startPos, endPos);
+        startPos = endPos;
+
+        int result = 0;
+        color.getAsInteger(16, result);
+        if (result == 0) {
+            return "0";
+        } else {
+            return color.str();
+        }
     }
 };
-
 
 QColorFromLiteral::QColorFromLiteral(const std::string &name, ClazyContext *context)
     : CheckBase(name, context, Option_CanIgnoreIncludes)
@@ -90,21 +162,25 @@ QColorFromLiteral::~QColorFromLiteral()
 
 void QColorFromLiteral::VisitStmt(Stmt *stmt)
 {
-    auto call = dyn_cast<CXXMemberCallExpr>(stmt);
-    if (!call || call->getNumArgs() != 1)
+    auto *call = dyn_cast<CXXMemberCallExpr>(stmt);
+    if (!call || call->getNumArgs() != 1) {
         return;
+    }
 
-    string name = clazy::qualifiedMethodName(call);
-    if (name != "QColor::setNamedColor")
+    std::string name = clazy::qualifiedMethodName(call);
+    if (name != "QColor::setNamedColor") {
         return;
+    }
 
-    StringLiteral *lt = clazy::getFirstChildOfType2<StringLiteral>(call->getArg(0));
-    if (handleStringLiteral(lt))
+    auto *lt = clazy::getFirstChildOfType2<StringLiteral>(call->getArg(0));
+    if (lt && isStringColorLiteralPattern(lt->getString())) {
         emitWarning(lt, "The ctor taking ints is cheaper than QColor::setNamedColor(QString)");
+    }
 }
 
 void QColorFromLiteral::registerASTMatchers(MatchFinder &finder)
 {
-    finder.addMatcher(cxxConstructExpr(hasDeclaration(namedDecl(hasName("QColor"))),
-                                       hasArgument(0, stringLiteral().bind("myLiteral"))), m_astMatcherCallBack);
+    finder.addMatcher(cxxConstructExpr(hasDeclaration(namedDecl(hasName("QColor"))), hasArgument(0, stringLiteral().bind("myLiteral"))), m_astMatcherCallBack);
+    finder.addMatcher(callExpr(hasDeclaration(cxxMethodDecl(hasName("fromString"), hasParent(cxxRecordDecl(hasName("QColor")))))).bind("methodCall"),
+                      m_astMatcherCallBack);
 }

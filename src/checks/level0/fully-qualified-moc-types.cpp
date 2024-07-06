@@ -1,31 +1,16 @@
 /*
-  This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2018 Sergio Martins <smartins@kde.org>
+    SPDX-FileCopyrightText: 2024 Alexander Lohnau <alexander.lohnau@gmx.de>
 
-    Copyright (C) 2018 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "fully-qualified-moc-types.h"
-#include "HierarchyUtils.h"
-#include "TypeUtils.h"
-#include "ClazyContext.h"
 #include "AccessSpecifierManager.h"
-#include "SourceCompatibilityHelpers.h"
+#include "ClazyContext.h"
+#include "HierarchyUtils.h"
 #include "StringUtils.h"
+#include "TypeUtils.h"
 
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
@@ -41,14 +26,13 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 
-namespace clang {
+namespace clang
+{
 class Decl;
 class MacroInfo;
-}  // namespace clang
+} // namespace clang
 
 using namespace clang;
-using namespace std;
-
 
 FullyQualifiedMocTypes::FullyQualifiedMocTypes(const std::string &name, ClazyContext *context)
     : CheckBase(name, context)
@@ -59,81 +43,144 @@ FullyQualifiedMocTypes::FullyQualifiedMocTypes(const std::string &name, ClazyCon
 
 void FullyQualifiedMocTypes::VisitDecl(clang::Decl *decl)
 {
-    auto method = dyn_cast<CXXMethodDecl>(decl);
-    if (!method)
+    auto *method = dyn_cast<CXXMethodDecl>(decl);
+    if (!method) {
         return;
+    }
 
     AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
-    if (!accessSpecifierManager)
+    if (!accessSpecifierManager) {
         return;
+    }
 
-    if (handleQ_PROPERTY(method))
+    if (handleQ_PROPERTY(method)) {
         return;
+    }
 
-    if (method->isThisDeclarationADefinition() && !method->hasInlineBody())
+    if (method->isThisDeclarationADefinition() && !method->hasInlineBody()) {
         return;
+    }
 
     QtAccessSpecifierType qst = accessSpecifierManager->qtAccessSpecifierType(method);
-    if (qst != QtAccessSpecifier_Signal && qst != QtAccessSpecifier_Slot && qst != QtAccessSpecifier_Invokable)
+    if (qst != QtAccessSpecifier_Signal && qst != QtAccessSpecifier_Slot && qst != QtAccessSpecifier_Invokable) {
         return;
+    }
 
-    string qualifiedTypeName;
-    string typeName;
-    for (auto param : method->parameters()) {
+    std::string qualifiedTypeName;
+    std::string typeName;
+    for (auto *param : method->parameters()) {
         QualType t = clazy::pointeeQualType(param->getType());
         if (!typeIsFullyQualified(t, /*by-ref*/ qualifiedTypeName, /*by-ref*/ typeName)) {
-            emitWarning(method, string(accessSpecifierManager->qtAccessSpecifierTypeStr(qst)) + " arguments need to be fully-qualified (" + qualifiedTypeName + " instead of " + typeName + ")");
+            SourceRange fixitRange = param->getTypeSourceInfo()->getTypeLoc().getSourceRange();
+            // We don't want to include the & or * characters for the fixit range
+            if (param->getType()->isReferenceType() || param->getType()->isPointerType()) {
+                fixitRange = SourceRange(fixitRange.getBegin(), fixitRange.getEnd().getLocWithOffset(-1));
+            }
+            std::vector fixits{FixItHint::CreateReplacement(fixitRange, qualifiedTypeName)};
+            std::string warning = accessSpecifierManager->qtAccessSpecifierTypeStr(qst).str() + " arguments need to be fully-qualified";
+            emitWarning(param->getTypeSpecStartLoc(), warning, fixits);
         }
     }
 
     if (qst == QtAccessSpecifier_Slot || qst == QtAccessSpecifier_Invokable) {
         QualType returnT = clazy::pointeeQualType(method->getReturnType());
         if (!typeIsFullyQualified(returnT, /*by-ref*/ qualifiedTypeName, /*by-ref*/ typeName)) {
-            emitWarning(method, string(accessSpecifierManager->qtAccessSpecifierTypeStr(qst)) + " return types need to be fully-qualified (" + qualifiedTypeName + " instead of " + typeName + ")");
+            SourceRange returnTypeSourceRange = method->getReturnTypeSourceRange();
+            // We don't want to include the & or * characters for the fixit range
+            if (method->getReturnType()->isReferenceType() || method->getReturnType()->isPointerType()) {
+                returnTypeSourceRange = SourceRange(returnTypeSourceRange.getBegin(), returnTypeSourceRange.getEnd().getLocWithOffset(-1));
+            }
+            std::string warning = accessSpecifierManager->qtAccessSpecifierTypeStr(qst).str() + " return types need to be fully-qualified";
+            std::vector fixits{FixItHint::CreateReplacement(returnTypeSourceRange, qualifiedTypeName)};
+            emitWarning(returnTypeSourceRange.getBegin(), warning, fixits);
         }
     }
-
 }
 
-bool FullyQualifiedMocTypes::typeIsFullyQualified(QualType t, string &qualifiedTypeName, string &typeName) const
+static std::string resolveTemplateType(const clang::TemplateSpecializationType *ptr, LangOptions lo, bool checkElabType = true);
+static std::string getQualifiedNameOfType(const Type *ptr, const LangOptions &lo, bool checkElabType = true)
+{
+    if (auto *elabType = dyn_cast<ElaboratedType>(ptr); elabType && checkElabType) {
+        if (auto *specType = dyn_cast<TemplateSpecializationType>(elabType->getNamedType().getTypePtrOrNull()); specType && !ptr->getAs<TypedefType>()) {
+            return resolveTemplateType(specType, lo, false);
+        }
+    }
+    if (auto *typedefDecl = ptr->getAs<TypedefType>(); typedefDecl && typedefDecl->getDecl()) {
+        return typedefDecl->getDecl()->getQualifiedNameAsString();
+    } else if (auto templateSpec = ptr->getAs<TemplateSpecializationType>()) {
+        // In case one uses a typedef with generics, like QVector<QString> in Qt6
+        // The docs indicate getAsTemplateDecl might be null - so be prepared for that
+        if (auto *decl = templateSpec->getTemplateName().getAsTemplateDecl()) {
+            return decl->getQualifiedNameAsString();
+        }
+    } else if (auto recordDecl = ptr->getAsRecordDecl()) {
+        return recordDecl->getQualifiedNameAsString();
+    }
+    return QualType::getFromOpaquePtr(ptr).getAsString(lo);
+}
+
+// In Qt5, the type would contain lots of unneeded parameters: QDBusPendingReply<bool, void, void, void, void, void, void, void>
+// Thus we need to do all of the shenanigans below
+// specType->getCanonicalTypeInternal().getAsString(m_astContext.getPrintingPolicy())
+static std::string resolveTemplateType(const clang::TemplateSpecializationType *ptr, LangOptions lo, bool checkElabType)
+{
+    std::string str = getQualifiedNameOfType(ptr, lo, checkElabType);
+    str += "<";
+    bool firstArg = true;
+    for (auto arg : ptr->template_arguments()) { // We reconstruct the type with the explicitly specified template params
+        if (!firstArg) {
+            str += ", ";
+        }
+        firstArg = false;
+        str += getQualifiedNameOfType(arg.getAsType().getTypePtr(), lo);
+    }
+    str += ">";
+    return str;
+}
+
+bool FullyQualifiedMocTypes::typeIsFullyQualified(QualType t, std::string &qualifiedTypeName, std::string &typeName) const
 {
     qualifiedTypeName.clear();
     typeName.clear();
 
-    if (!t.isNull()) {
-        typeName = clazy::name(t, lo(), /*asWritten=*/ true);
-        if (typeName == "QPrivateSignal")
-            return true;
-
-        qualifiedTypeName = clazy::name(t, lo(), /*asWritten=*/ false);
-        if (qualifiedTypeName.empty() || qualifiedTypeName[0] == '(') {
-            // We don't care about (anonymous namespace)::
+    if (auto *ptr = t.getTypePtrOrNull(); ptr && ptr->isRecordType()) {
+        typeName = clazy::name(t.getUnqualifiedType(), lo(), /*asWritten=*/true); // Ignore qualifiers like const here
+        if (typeName == "QPrivateSignal") {
             return true;
         }
 
-        return typeName == qualifiedTypeName;
-    } else {
-        return true;
+        if (auto specType = ptr->getAs<TemplateSpecializationType>(); specType && !ptr->getAs<TypedefType>()) {
+            qualifiedTypeName = resolveTemplateType(specType, lo());
+        } else if (auto recordDecl = ptr->getAsRecordDecl(); recordDecl && recordDecl->isInAnonymousNamespace()) {
+            return true;
+        } else {
+            qualifiedTypeName = getQualifiedNameOfType(ptr, lo());
+        }
+        return qualifiedTypeName.empty() || typeName == qualifiedTypeName;
     }
+    return true;
 }
 
 bool FullyQualifiedMocTypes::isGadget(CXXRecordDecl *record) const
 {
-    SourceLocation startLoc = clazy::getLocStart(record);
+    SourceLocation startLoc = record->getBeginLoc();
     for (const SourceLocation &loc : m_qgadgetMacroLocations) {
-        if (sm().getFileID(loc) != sm().getFileID(startLoc))
+        if (sm().getFileID(loc) != sm().getFileID(startLoc)) {
             continue; // Different file
+        }
 
-        if (sm().isBeforeInSLocAddrSpace(startLoc, loc) && sm().isBeforeInSLocAddrSpace(loc, clazy::getLocEnd(record)))
+        if (sm().isBeforeInSLocAddrSpace(startLoc, loc) && sm().isBeforeInSLocAddrSpace(loc, record->getEndLoc())) {
             return true; // We found a Q_GADGET after start and before end, it's ours.
+        }
     }
     return false;
 }
 
 bool FullyQualifiedMocTypes::handleQ_PROPERTY(CXXMethodDecl *method)
 {
-    if (clazy::name(method) != "qt_static_metacall" || !method->hasBody() || method->getDefinition() != method)
+    if (clazy::name(method) != "qt_static_metacall" || !method->hasBody() || method->getDefinition() != method) {
         return false;
+    }
     /**
      * Basically diffed a .moc file with and without a namespaced property,
      * the difference is one reinterpret_cast, under an if (_c == QMetaObject::ReadProperty), so
@@ -145,35 +192,32 @@ bool FullyQualifiedMocTypes::handleQ_PROPERTY(CXXMethodDecl *method)
 
     auto ifs = clazy::getStatements<IfStmt>(method->getBody());
 
-    for (auto iff : ifs) {
-        auto bo = dyn_cast<BinaryOperator>(iff->getCond());
-        if (!bo)
+    for (auto *iff : ifs) {
+        auto *bo = dyn_cast<BinaryOperator>(iff->getCond());
+        if (!bo) {
             continue;
+        }
 
         auto enumRefs = clazy::getStatements<DeclRefExpr>(bo->getRHS());
         if (enumRefs.size() == 1) {
-            auto enumerator = dyn_cast<EnumConstantDecl>(enumRefs.at(0)->getDecl());
+            auto *enumerator = dyn_cast<EnumConstantDecl>(enumRefs.at(0)->getDecl());
             if (enumerator && clazy::name(enumerator) == "ReadProperty") {
                 auto switches = clazy::getStatements<SwitchStmt>(iff); // we only want the reinterpret_casts that are inside switches
-                for (auto s : switches) {
+                for (auto *s : switches) {
                     auto reinterprets = clazy::getStatements<CXXReinterpretCastExpr>(s);
-                    for (auto reinterpret : reinterprets) {
+                    for (auto *reinterpret : reinterprets) {
                         QualType qt = clazy::pointeeQualType(reinterpret->getTypeAsWritten());
-                        auto record = qt->getAsCXXRecordDecl();
-                        if (!record || !isGadget(record))
-                            continue;
-
-                        string nameAsWritten = clazy::name(qt, lo(), /*asWritten=*/ true);
-                        string fullyQualifiedName = clazy::name(qt, lo(), /*asWritten=*/ false);
-                        if (fullyQualifiedName.empty() || fullyQualifiedName[0] == '(') {
-                            // We don't care about (anonymous namespace)::
+                        if (auto *record = qt->getAsCXXRecordDecl(); !record || !isGadget(record)) {
                             continue;
                         }
 
-                        if (nameAsWritten != fullyQualifiedName) {
+                        std::string nameAsWritten;
+                        std::string qualifiedName;
+                        if (!typeIsFullyQualified(qt, qualifiedName, nameAsWritten)) {
                             // warn in the cxxrecorddecl, since we don't want to warn in the .moc files.
                             // Ideally we would do some cross checking with the Q_PROPERTIES, but that's not in the AST
-                            emitWarning(clazy::getLocStart(method->getParent()), "Q_PROPERTY of type " + nameAsWritten + " should use full qualification (" + fullyQualifiedName + ")");
+                            emitWarning(method->getParent()->getBeginLoc(),
+                                        "Q_PROPERTY of type " + nameAsWritten + " should use full qualification (" + qualifiedName + ")");
                         }
                     }
                 }
@@ -185,12 +229,12 @@ bool FullyQualifiedMocTypes::handleQ_PROPERTY(CXXMethodDecl *method)
     return true; // true, so processing doesn't continue, it's a qt_static_metacall, nothing interesting here unless the properties above
 }
 
-void FullyQualifiedMocTypes::VisitMacroExpands(const clang::Token &MacroNameTok,
-                                               const clang::SourceRange &range, const MacroInfo *)
+void FullyQualifiedMocTypes::VisitMacroExpands(const clang::Token &MacroNameTok, const clang::SourceRange &range, const MacroInfo *)
 {
     IdentifierInfo *ii = MacroNameTok.getIdentifierInfo();
-    if (ii && ii->getName() == "Q_GADGET")
+    if (ii && ii->getName() == "Q_GADGET") {
         registerQ_GADGET(range.getBegin());
+    }
 }
 
 void FullyQualifiedMocTypes::registerQ_GADGET(SourceLocation loc)

@@ -1,31 +1,13 @@
 /*
-  This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2019 Jean-Michaël Celerier <jeanmichael.celerier@gmail.com>
 
-    Copyright (C) 2019 Jean-Michaël Celerier <jeanmichael.celerier@gmail.com>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "qproperty-type-mismatch.h"
-#include "HierarchyUtils.h"
-#include "TypeUtils.h"
-#include "ClazyContext.h"
 #include "AccessSpecifierManager.h"
-#include "SourceCompatibilityHelpers.h"
-#include "StringUtils.h"
+#include "ClazyContext.h"
+#include "TypeUtils.h"
 
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
@@ -40,17 +22,18 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
+
 #include <algorithm>
 #include <cctype>
+#include <string_view>
 
-namespace clang {
+namespace clang
+{
 class Decl;
 class MacroInfo;
-}  // namespace clang
+} // namespace clang
 
 using namespace clang;
-using namespace std;
-
 
 QPropertyTypeMismatch::QPropertyTypeMismatch(const std::string &name, ClazyContext *context)
     : CheckBase(name, context)
@@ -61,42 +44,40 @@ QPropertyTypeMismatch::QPropertyTypeMismatch(const std::string &name, ClazyConte
 
 void QPropertyTypeMismatch::VisitDecl(clang::Decl *decl)
 {
-    if (auto method = dyn_cast<CXXMethodDecl>(decl))
+    if (auto *method = dyn_cast<CXXMethodDecl>(decl)) {
         VisitMethod(*method);
-    else if (auto field = dyn_cast<FieldDecl>(decl))
+    } else if (auto *field = dyn_cast<FieldDecl>(decl)) {
         VisitField(*field);
-    else if (auto typedefdecl = dyn_cast<TypedefNameDecl>(decl))
+    } else if (auto *typedefdecl = dyn_cast<TypedefNameDecl>(decl)) {
         VisitTypedef(typedefdecl);
+    }
 }
 
-void QPropertyTypeMismatch::VisitMethod(const clang::CXXMethodDecl & method)
+void QPropertyTypeMismatch::VisitMethod(const clang::CXXMethodDecl &method)
 {
-    if (method.isThisDeclarationADefinition() && !method.hasInlineBody())
+    if (method.isThisDeclarationADefinition() && !method.hasInlineBody()) {
         return;
+    }
 
-    const auto& theClass = method.getParent();
-    const auto& classRange = theClass->getSourceRange();
-    const auto& methodName = method.getNameInfo().getName().getAsString();
+    const auto &theClass = method.getParent();
+    const auto &classRange = theClass->getSourceRange();
+    const auto &methodName = method.getNameInfo().getName().getAsString();
 
-    for(const auto& prop : m_qproperties)
-    {
-        if(classRange.getBegin() < prop.loc && prop.loc < classRange.getEnd())
-        {
+    for (const auto &prop : m_qproperties) {
+        if (classRange.getBegin() < prop.loc && prop.loc < classRange.getEnd()) {
             checkMethodAgainstProperty(prop, method, methodName);
         }
     }
 }
 
-void QPropertyTypeMismatch::VisitField(const FieldDecl & field)
+void QPropertyTypeMismatch::VisitField(const FieldDecl &field)
 {
-    const auto& theClass = field.getParent();
-    const auto& classRange = theClass->getSourceRange();
-    const auto& methodName = field.getName().str();
+    const auto &theClass = field.getParent();
+    const auto &classRange = theClass->getSourceRange();
+    const auto &methodName = field.getName().str();
 
-    for(const auto& prop : m_qproperties)
-    {
-        if(classRange.getBegin() < prop.loc && prop.loc < classRange.getEnd())
-        {
+    for (const auto &prop : m_qproperties) {
+        if (classRange.getBegin() < prop.loc && prop.loc < classRange.getEnd()) {
             checkFieldAgainstProperty(prop, field, methodName);
         }
     }
@@ -123,35 +104,37 @@ std::string QPropertyTypeMismatch::cleanupType(QualType type, bool unscoped) con
     po.SuppressScope = unscoped;
 
     std::string str = type.getAsString(po);
-    str.erase(std::remove_if(str.begin(), str.end(), [] (char c) {
-        return std::isspace(c);
-    }), str.end());
+    str.erase(std::remove_if(str.begin(),
+                             str.end(),
+                             [](char c) {
+                                 return std::isspace(c);
+                             }),
+              str.end());
 
     return str;
 }
 
-void QPropertyTypeMismatch::checkMethodAgainstProperty (const Property& prop, const CXXMethodDecl& method, const std::string& methodName){
-
-    auto error_begin = [&] { return "Q_PROPERTY '" + prop.name + "' of type '" + prop.type + "' is mismatched with "; };
+void QPropertyTypeMismatch::checkMethodAgainstProperty(const Property &prop, const CXXMethodDecl &method, const std::string &methodName)
+{
+    auto error_begin = [&] {
+        return "Q_PROPERTY '" + prop.name + "' of type '" + prop.type + "' is mismatched with ";
+    };
 
     if (prop.read == methodName) {
         std::string retTypeStr;
         if (!typesMatch(prop.type, method.getReturnType(), retTypeStr)) {
-            emitWarning(&method, error_begin() + "method '" + methodName + "' of return type '"+ retTypeStr +"'");
+            emitWarning(&method, error_begin() + "method '" + methodName + "' of return type '" + retTypeStr + "'");
         }
-    }
-    else if(prop.write == methodName)
-    {
-        switch(method.getNumParams())
-        {
+    } else if (prop.write == methodName) {
+        switch (method.getNumParams()) {
         case 0:
             emitWarning(&method, error_begin() + "method '" + methodName + "' with no parameters");
             break;
-        case 1:
-        {
+        case 1: {
             std::string parmTypeStr;
-            if (!typesMatch(prop.type, method.getParamDecl(0)->getType(), parmTypeStr))
-                emitWarning(&method, error_begin() + "method '" + methodName + "' with parameter of type '"+ parmTypeStr +"'");
+            if (!typesMatch(prop.type, method.getParamDecl(0)->getType(), parmTypeStr)) {
+                emitWarning(&method, error_begin() + "method '" + methodName + "' with parameter of type '" + parmTypeStr + "'");
+            }
             break;
         }
         default:
@@ -159,15 +142,11 @@ void QPropertyTypeMismatch::checkMethodAgainstProperty (const Property& prop, co
             // emitWarning(&method, error_begin() + "method '" + methodName + "' with too many parameters");
             break;
         }
-    }
-    else if(prop.notify == methodName)
-    {
-        switch(method.getNumParams())
-        {
+    } else if (prop.notify == methodName) {
+        switch (method.getNumParams()) {
         case 0:
             break;
-        case 2:
-        {
+        case 2: {
             /*
              // Commented out: Too verbose and it's not a bug, maybe wrap with an option for the purists
             auto param1TypeStr = cleanupType(method.getParamDecl(1)->getType());
@@ -180,38 +159,40 @@ void QPropertyTypeMismatch::checkMethodAgainstProperty (const Property& prop, co
             // We want to check the first parameter too :
             [[fallthrough]];*/
         }
-        case 1:
-        {
+        case 1: {
             std::string param0TypeStr;
             if (!typesMatch(prop.type, method.getParamDecl(0)->getType(), param0TypeStr)) {
                 const bool isPrivateSignal = param0TypeStr.find("QPrivateSignal") != std::string::npos;
-                if (!isPrivateSignal)
-                    emitWarning(&method, error_begin() + "signal '" + methodName + "' with parameter of type '"+ param0TypeStr +"'");
+                if (!isPrivateSignal) {
+                    emitWarning(&method, error_begin() + "signal '" + methodName + "' with parameter of type '" + param0TypeStr + "'");
+                }
             }
             break;
         }
-        default:
-        {
+        default: {
             break;
         }
         }
     }
 }
 
-void QPropertyTypeMismatch::checkFieldAgainstProperty (const Property& prop, const FieldDecl& field, const std::string& fieldName)
+void QPropertyTypeMismatch::checkFieldAgainstProperty(const Property &prop, const FieldDecl &field, const std::string &fieldName)
 {
     if (prop.member && prop.name == fieldName) {
         std::string typeStr;
-        if (!typesMatch(prop.type, field.getType(), typeStr))
-            emitWarning(&field, "Q_PROPERTY '" + prop.name + "' of type '" + prop.type + "' is mismatched with member '" + fieldName + "' of type '"+ typeStr +"'");
+        if (!typesMatch(prop.type, field.getType(), typeStr)) {
+            emitWarning(&field,
+                        "Q_PROPERTY '" + prop.name + "' of type '" + prop.type + "' is mismatched with member '" + fieldName + "' of type '" + typeStr + "'");
+        }
     }
 }
 
-bool QPropertyTypeMismatch::typesMatch(const string &type1, QualType type2Qt, std::string &type2Cleaned) const
+bool QPropertyTypeMismatch::typesMatch(const std::string &type1, QualType type2Qt, std::string &type2Cleaned) const
 {
     type2Cleaned = cleanupType(type2Qt);
-    if (type1 == type2Cleaned)
+    if (type1 == type2Cleaned) {
         return true;
+    }
 
     // Maybe it's a typedef
     auto it = m_typedefMap.find(type1);
@@ -220,79 +201,96 @@ bool QPropertyTypeMismatch::typesMatch(const string &type1, QualType type2Qt, st
     }
 
     // Maybe the difference is just the scope, if yes then don't warn. We already have a check for complaining about lack of scope
-    type2Cleaned = cleanupType(type2Qt, /*unscopped=*/ true);
-    if (type1 == type2Cleaned)
-        return true;
-
-    return false;
+    type2Cleaned = cleanupType(type2Qt, /*unscopped=*/true);
+    return type1 == type2Cleaned;
 }
 
 void QPropertyTypeMismatch::VisitMacroExpands(const clang::Token &MacroNameTok, const clang::SourceRange &range, const MacroInfo *)
 {
     IdentifierInfo *ii = MacroNameTok.getIdentifierInfo();
-    if(!ii)
+    if (!ii) {
         return;
-    if(ii->getName() != "Q_PROPERTY")
+    }
+
+    constexpr llvm::StringLiteral q_property{"Q_PROPERTY"};
+
+    if (ii->getName() != q_property) {
         return;
+    }
 
-    CharSourceRange crange = Lexer::getAsCharRange(range, sm(), lo());
+    const CharSourceRange crange = Lexer::getAsCharRange(range, sm(), lo());
 
-    string text = static_cast<string>(Lexer::getSourceText(crange, sm(), lo()));
-    if (!text.empty() && text.back() == ')')
-        text.pop_back();
+    llvm::StringRef text = Lexer::getSourceText(crange, sm(), lo());
 
-    std::vector<std::string> split = clazy::splitString(text, ' ');
-    if(split.size() < 2)
+    const auto openingLParen = std::find_if_not(text.begin() + q_property.size(), text.end(), [](char c) {
+        return std::isspace(c);
+    });
+    if (*openingLParen != '(') {
+        emitWarning(range.getBegin(), "Could not parse argument of the Q_PROPERTY macro");
         return;
+    }
+
+    const std::size_t contentBegin = openingLParen - text.begin() + 1;
+    std::size_t contentLength = text.size() - contentBegin;
+    if (!text.empty() && text.back() == ')') {
+        --contentLength;
+    }
+    text = text.substr(contentBegin, contentLength);
+
+    std::vector<std::string_view> split = clazy::splitStringBySpaces(text);
+    if (split.size() < 2) {
+        return;
+    }
 
     Property p;
     p.loc = range.getBegin();
 
-    // Handle type
-    clazy::rtrim(split[0]);
-    p.type = split[0];
-    if(p.type.find("Q_PROPERTY(") == 0)
-        p.type = p.type.substr(11);
+    std::size_t splitIndex = 0;
+    using namespace std::string_view_literals;
+
+    // Handle type (type string and any following modifiers)
+    const auto isModifier = [](std::string_view str) {
+        return str == "*"sv || str == "&"sv;
+    };
+
+    for (; isModifier(split[splitIndex]) || p.type.empty(); ++splitIndex) {
+        p.type += split[splitIndex];
+    }
 
     // Handle name
-    clazy::rtrim(split[1]);
-    p.name = split[1];
+    p.name = split[splitIndex];
 
+    std::size_t actualNameStartPos = 0;
     // FIXME: This is getting hairy, better use regexps
     for (unsigned int i = 0; i < p.name.size(); ++i) {
-        if (p.name[i] == '*') {
-            p.type += '*';
+        if (p.name[i] == '*' || p.name[i] == '&') {
+            p.type += p.name[i];
+            ++actualNameStartPos;
         } else {
             break;
         }
     }
 
-    p.name.erase(std::remove(p.name.begin(), p.name.end(), '*'), p.name.end());
+    if (actualNameStartPos) {
+        p.name.erase(0, actualNameStartPos);
+    }
 
     // Handle Q_PROPERTY functions
-    enum {
-        None, Read, Write, Notify
-    } next = None;
+    enum { None, Read, Write, Notify } next = None;
 
-    for (std::string &token : split) {
-        clazy::rtrim(/*by-ref*/token);
-        switch(next)
-        {
-        case None:
-        {
-            if (token == "READ") {
+    for (std::string_view &token : split) {
+        switch (next) {
+        case None: {
+            if (token == "READ"sv) {
                 next = Read;
                 continue;
-            }
-            else if (token == "WRITE") {
+            } else if (token == "WRITE"sv) {
                 next = Write;
                 continue;
-            }
-            else if (token == "NOTIFY") {
+            } else if (token == "NOTIFY"sv) {
                 next = Notify;
                 continue;
-            }
-            else if (token == "MEMBER") {
+            } else if (token == "MEMBER"sv) {
                 p.member = true;
                 break;
             }
@@ -314,4 +312,3 @@ void QPropertyTypeMismatch::VisitMacroExpands(const clang::Token &MacroNameTok, 
 
     m_qproperties.push_back(std::move(p));
 }
-

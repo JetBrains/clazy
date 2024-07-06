@@ -1,23 +1,8 @@
 /*
-  This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2016 Sergio Martins <smartins@kde.org>
+    SPDX-FileCopyrightText: 2016 Klarälvdalens Datakonsult AB a KDAB Group company info@kdab.com
 
-    Copyright (C) 2016 Sergio Martins <smartins@kde.org>
-    Copyright (C) 2016 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef CLAZY_ACCESS_SPECIFIER_MANAGER_H
@@ -25,9 +10,9 @@
 
 #include "checkbase.h"
 
-#include <clang/Frontend/CompilerInstance.h>
 #include <clang/Basic/SourceLocation.h>
 #include <clang/Basic/Specifiers.h>
+#include <clang/Frontend/CompilerInstance.h>
 #include <llvm/ADT/StringRef.h>
 
 #include <unordered_map>
@@ -59,17 +44,9 @@ class CompilerInstance;
 class AccessSpecifierPreprocessorCallbacks;
 class ClazyContext;
 
-enum QtAccessSpecifierType
-{
-    QtAccessSpecifier_None,
-    QtAccessSpecifier_Unknown,
-    QtAccessSpecifier_Slot,
-    QtAccessSpecifier_Signal,
-    QtAccessSpecifier_Invokable
-};
+enum QtAccessSpecifierType { QtAccessSpecifier_None, QtAccessSpecifier_Unknown, QtAccessSpecifier_Slot, QtAccessSpecifier_Signal, QtAccessSpecifier_Invokable };
 
-struct ClazyAccessSpecifier
-{
+struct ClazyAccessSpecifier {
     clang::SourceLocation loc;
     clang::AccessSpecifier accessSpecifier;
     QtAccessSpecifierType qtAccessSpecifier;
@@ -86,26 +63,25 @@ public:
     /**
      * Returns if a method is a signal, a slot, or neither.
      */
-    QtAccessSpecifierType qtAccessSpecifierType(const clang::CXXMethodDecl*) const;
+    QtAccessSpecifierType qtAccessSpecifierType(const clang::CXXMethodDecl *) const;
 
     /**
      * Returns if a method is scriptable (Q_SCRIPTABLE)
      */
-    bool isScriptable(const clang::CXXMethodDecl*) const;
+    bool isScriptable(const clang::CXXMethodDecl *) const;
 
     /**
      * Returns a string representations of a Qt Access Specifier Type
      */
     llvm::StringRef qtAccessSpecifierTypeStr(QtAccessSpecifierType) const;
 
-    clang::SourceLocation firstLocationOfSection(clang::AccessSpecifier specifier,
-                                                 clang::CXXRecordDecl *decl) const;
+    clang::SourceLocation firstLocationOfSection(clang::AccessSpecifier specifier, clang::CXXRecordDecl *decl) const;
 
 private:
-    ClazySpecifierList &entryForClassDefinition(clang::CXXRecordDecl*);
+    ClazySpecifierList &entryForClassDefinition(clang::CXXRecordDecl *);
     const clang::CompilerInstance &m_ci;
     const clang::CXXRecordDecl *classDefinitionForLoc(clang::SourceLocation loc) const;
-    std::unordered_map<const clang::CXXRecordDecl*, ClazySpecifierList> m_specifiersMap;
+    std::unordered_map<const clang::CXXRecordDecl *, ClazySpecifierList> m_specifiersMap;
     AccessSpecifierPreprocessorCallbacks *const m_preprocessorCallbacks;
     const bool m_fixitsEnabled;
     bool m_visitsNonQObjects = false;

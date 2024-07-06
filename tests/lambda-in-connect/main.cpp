@@ -37,14 +37,14 @@ struct C
         QObject::connect(o, &QObject::destroyed, [&m]() { m; }); // Warn
 
         QObject o2;
-        QObject::connect(&o2, &QObject::destroyed, [&m]() { m; }); // OK, o is on the stack
+        QObject::connect(&o2, &QObject::destroyed, [&m]() { m; }); // OK, o2 is on the stack
 
         QObject *o3;
         QObject::connect(o3, &QObject::destroyed,
                          o3, [&o3] { o3; }); // OK, the captured variable is on the 3rd parameter too. It will get destroyed
-    }
 
-    int m;
+        QObject::connect(o3, &QObject::destroyed, &o2, [&m]() { m; }); // OK, o2 is on the stack
+    }
 };
 
 
@@ -53,9 +53,12 @@ void bug3rdArgument(QObject *sender)
     // Checks that we shouldn't warn when the captured variable matches the 3rd argument
 
     QObject context;
+    QObject *obj;
     int m = 0;
-    QObject::connect(sender, &QObject::destroyed, &context, [&] {
+    QObject::connect(sender, &QObject::destroyed, obj, [&] {
         qDebug() << m; // Warn
+    });
+    QObject::connect(sender, &QObject::destroyed, &context, [&] {
         qDebug() << context.objectName(); // OK
     });
 }

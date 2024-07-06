@@ -1,13 +1,8 @@
 {
-    "minimum_clang_version" : 500,
-    "tests" : [
+    "minimum_clang_version": 500,
+    "tests": [
         {
-            "cppStandard" : "c++14",
-            "filename" : "main.cpp"
-        },
-        {
-            "cppStandard" : "c++17",
-            "filename" : "main.cpp"
+            "filename": "main.cpp"
         }
     ]
 }

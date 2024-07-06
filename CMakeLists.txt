@@ -5,9 +5,9 @@
 # The man page is not available on Windows.
 #
 
-project(clazy)
+cmake_minimum_required(VERSION 3.8)
 
-cmake_minimum_required(VERSION 3.7)
+project(clazy)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12.0")
     cmake_policy(SET CMP0074 NEW)
@@ -19,14 +19,14 @@ include(GNUInstallDirs)
 
 # Version setup
 set(CLAZY_VERSION_MAJOR "1")
-set(CLAZY_VERSION_MINOR "11")
+set(CLAZY_VERSION_MINOR "12")
 set(CLAZY_VERSION_PATCH "0")
 set(CLAZY_VERSION "${CLAZY_VERSION_MAJOR}.${CLAZY_VERSION_MINOR}.${CLAZY_VERSION_PATCH}")
 set(CLAZY_PRINT_VERSION "${CLAZY_VERSION_MAJOR}.${CLAZY_VERSION_MINOR}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/cmake)
 if (NOT CLAZY_BUILD_WITH_CLANG)
-  find_package(Clang 8.0 MODULE REQUIRED)
+  find_package(Clang 11.0 MODULE REQUIRED)
 
   if (CLANG_CLANG-CPP_LIB AND NOT APPLE)
     set(default_use_clang_cpp ON)
@@ -42,6 +42,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 add_definitions(-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS)
 add_definitions(-D_GNU_SOURCE -DHAVE_CLANG_CONFIG_H)
+add_definitions(-DCLAZY_VERSION="${CLAZY_PRINT_VERSION}")
 
 option(CLAZY_AST_MATCHERS_CRASH_WORKAROUND "Disable AST Matchers if being built with clang. See bug #392223" ON)
 option(LINK_CLAZY_TO_LLVM "Links the clazy plugin to LLVM. Switch to OFF if your clang binary has all symbols already. Might need to be OFF if your LLVM is static." ON)
@@ -56,8 +57,8 @@ if (CLAZY_ENABLE_SANITIZERS)
     endif()
 endif()
 
-if (CLAZY_AST_MATCHERS_CRASH_WORKAROUND AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    message("Enabling AST Matchers workaround. Consider building with gcc instead. See bug #392223.")
+if (CLAZY_AST_MATCHERS_CRASH_WORKAROUND AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 7.0 AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0)
+    message("Enabling AST Matchers workaround. Consider updating clang or building with gcc instead. See bug #392223.")
     add_definitions(-DCLAZY_DISABLE_AST_MATCHERS)
 endif()
 
@@ -79,28 +80,27 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 endif()
 
-# Look for std::regex support
-message("Looking for std::regex support...")
-try_run(REGEX_RUN_RESULT COMPILE_RESULT ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/.cmake_has_regex_test.cpp CXX_STANDARD 17 CXX_STANDARD_REQUIRED true)
-
-if(NOT REGEX_RUN_RESULT EQUAL 0)
-  message("Using boost::regex instead of std::regex")
-  set(CLAZY_USES_BOOST_REGEX TRUE)
-  add_definitions(-DCLAZY_USES_BOOST_REGEX)
-  find_package(Boost REQUIRED COMPONENTS regex)
-  include_directories(${Boost_INCLUDE_DIRS})
-endif()
-
 set(CMAKE_CXX_STANDARD 17)
 set(CXX_STANDARD_REQUIRED ON)
 
+# Look for std::regex support
+if(NOT DEFINED REGEX_RUN_RESULT)
+  message("Looking for std::regex support...")
+  try_compile(REGEX_RUN_RESULT ${CMAKE_CURRENT_BINARY_DIR} SOURCES ${CMAKE_CURRENT_LIST_DIR}/.cmake_has_regex_test.cpp)
+endif()
+
+if(NOT DEFINED REGEX_RUN_RESULT)
+  message(FATAL_ERROR "std::regex support is mandatory")
+endif()
+
 # Compiler might support c++17 but not have std::filesystem in the standard library
-#message("Looking for std::filesystem support...")
-#try_run(FILESYSTEM_RUN_RESULT COMPILE_RESULT ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/.cmake_has_filesystem_test.cpp OUTPUT_VARIABLE foo CXX_STANDARD 17 CXX_STANDARD_REQUIRED true)
-#
-#if (FILESYSTEM_RUN_RESULT EQUAL 0 AND COMPILE_RESULT)
-#add_definitions(-DHAS_STD_FILESYSTEM)
-#endif()
+if (NOT FILESYSTEM_RUN_RESULT)
+  try_compile(FILESYSTEM_RUN_RESULT ${CMAKE_CURRENT_BINARY_DIR} SOURCES ${CMAKE_CURRENT_LIST_DIR}/.cmake_has_filesystem_test.cpp OUTPUT_VARIABLE foo CXX_STANDARD 17 CXX_STANDARD_REQUIRED true)
+endif()
+
+if (NOT FILESYSTEM_RUN_RESULT)
+  message(FATAL_ERROR "std::filesystem support is mandatory")
+endif()
 
 include(ClazySources.cmake)
 
@@ -108,10 +108,10 @@ include_directories(${CMAKE_BINARY_DIR})
 include_directories(${CLANG_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/src)
 link_directories("${LLVM_INSTALL_PREFIX}/lib" ${LLVM_LIBRARY_DIRS})
 
-if (${LLVM_VERSION} VERSION_GREATER_EQUAL "9.0.0")
-    set(clang_tooling_refactoring_lib clangToolingRefactoring)
-else()
-    set(clang_tooling_refactoring_lib clangToolingRefactor)
+set(clang_tooling_refactoring_lib clangToolingRefactoring)
+
+if (${LLVM_VERSION} VERSION_GREATER_EQUAL "15.0.0")
+  set(clang_support_lib clangSupport)
 endif()
 
 if (${LLVM_VERSION} VERSION_GREATER_EQUAL "15.0.0")
@@ -162,9 +162,6 @@ macro(link_to_llvm name is_standalone)
 
   if(WIN32)
     target_link_libraries(${name} ${CLAZY_STANDALONE_LINK_SCOPE} version.lib)
-  endif()
-  if (CLAZY_USES_BOOST_REGEX)
-    target_link_libraries(${name} ${Boost_LIBRARIES})
   endif()
 endmacro()
 
@@ -244,7 +241,7 @@ if (NOT CLAZY_BUILD_WITH_CLANG)
   install(FILES ${README_manuallevel_FILES} DESTINATION ${CMAKE_INSTALL_DOCDIR}/manuallevel)
 
   # Install more doc files
-  install(FILES README.md COPYING-LGPL2.txt checks.json DESTINATION ${CMAKE_INSTALL_DOCDIR})
+  install(FILES README.md LICENSES/LGPL-2.0-or-later.txt checks.json DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
   # Build docs
   if (CLAZY_MAN_PAGE)
@@ -358,7 +355,9 @@ file(READ checks.json SUPPORTED_CHECKS_JSON_STR)
 to_raw_string_literal(${SUPPORTED_CHECKS_JSON_STR} SUPPORTED_CHECKS_JSON_STR)
 configure_file(checks.json.h.in checks.json.h)
 
-enable_testing()
-include(ClazyTests.cmake)
+if (NOT CLAZY_BUILD_WITH_CLANG)
+    enable_testing()
+    include(ClazyTests.generated.cmake)
+endif()
 
 install(FILES org.kde.clazy.metainfo.xml DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/metainfo)

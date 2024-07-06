@@ -1,53 +1,42 @@
 /*
-    This file is part of the clazy static checker.
+    SPDX-FileCopyrightText: 2016 Sergio Martins <smartins@kde.org>
 
-    Copyright (C) 2016 Sergio Martins <smartins@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "SuppressionManager.h"
 #include "SourceCompatibilityHelpers.h"
 #include "clazy_stl.h"
 
-#include <clang/Basic/SourceManager.h>
 #include <clang/Basic/SourceLocation.h>
+#include <clang/Basic/SourceManager.h>
 #include <clang/Basic/TokenKinds.h>
 #include <clang/Lex/Token.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <regex>
 #include <vector>
 
 using namespace clang;
-using namespace std;
 
 SuppressionManager::SuppressionManager()
 {
 }
 
-bool SuppressionManager::isSuppressed(const std::string &checkName, clang::SourceLocation loc,
-                                      const clang::SourceManager &sm, const clang::LangOptions &lo) const
+bool SuppressionManager::isSuppressed(const std::string &checkName,
+                                      clang::SourceLocation loc,
+                                      const clang::SourceManager &sm,
+                                      const clang::LangOptions &lo) const
 {
-    if (loc.isMacroID())
+    if (loc.isMacroID()) {
         loc = sm.getExpansionLoc(loc);
+    }
 
     FileID fileID = sm.getFileID(loc);
-    if (fileID.isInvalid())
+    if (fileID.isInvalid()) {
         return false;
+    }
 
     auto it = m_processedFileIDs.find(fileID.getHashValue());
     const bool notProcessedYet = (it == m_processedFileIDs.cend());
@@ -59,21 +48,30 @@ bool SuppressionManager::isSuppressed(const std::string &checkName, clang::Sourc
     Suppressions &suppressions = (*it).second;
 
     // Case 1: clazy:skip, the whole file is skipped, regardless of which check
-    if (suppressions.skipEntireFile)
+    if (suppressions.skipEntireFile) {
         return true;
+    }
 
     // Case 2: clazy:excludeall=foo, the check foo will be ignored for this file
     const bool checkIsSuppressed = suppressions.checksToSkip.find(checkName) != suppressions.checksToSkip.cend();
-    if (checkIsSuppressed)
+    if (checkIsSuppressed) {
         return true;
+    }
 
     // Case 3: clazy:exclude=foo, the check foo will be ignored for this file in this line number
-    if (loc.isInvalid())
+    if (loc.isInvalid()) {
         return false;
+    }
 
     const int lineNumber = sm.getSpellingLineNumber(loc);
-    const bool checkIsSuppressedByLine = suppressions.checksToSkipByLine.find(LineAndCheckName(lineNumber, checkName)) != suppressions.checksToSkipByLine.cend();
-    return checkIsSuppressedByLine;
+    if (suppressions.skipNextLine.count(lineNumber) > 0) {
+        suppressions.skipNextLine.erase(lineNumber);
+        return true;
+    }
+    if (suppressions.checksToSkipByLine.find(LineAndCheckName(lineNumber, checkName)) != suppressions.checksToSkipByLine.cend())
+        return true;
+
+    return false;
 }
 
 void SuppressionManager::parseFile(FileID id, const SourceManager &sm, const clang::LangOptions &lo) const
@@ -97,10 +95,21 @@ void SuppressionManager::parseFile(FileID id, const SourceManager &sm, const cla
                 return;
             }
 
-            static regex rx(R"(clazy:excludeall=(.*?)(\s|$))");
-            smatch match;
+            if (clazy::contains(comment, "NOLINTNEXTLINE")) {
+                bool invalid = false;
+                const int nextLineNumber = sm.getSpellingLineNumber(token.getLocation(), &invalid) + 1;
+                if (invalid) {
+                    llvm::errs() << "SuppressionManager::parseFile: Invalid line number for token location where NOLINTNEXTLINE was found\n";
+                    continue;
+                }
+
+                suppressions.skipNextLine.insert(nextLineNumber);
+            }
+
+            static std::regex rx(R"(clazy:excludeall=(.*?)(\s|$))");
+            std::smatch match;
             if (regex_search(comment, match, rx) && match.size() > 1) {
-                vector<string> checks = clazy::splitString(match[1], ',');
+                std::vector<std::string> checks = clazy::splitString(match[1], ',');
                 suppressions.checksToSkip.insert(checks.cbegin(), checks.cend());
             }
 
@@ -110,11 +119,11 @@ void SuppressionManager::parseFile(FileID id, const SourceManager &sm, const cla
                 continue;
             }
 
-            static regex rx2(R"(clazy:exclude=(.*?)(\s|$))");
+            static std::regex rx2(R"(clazy:exclude=(.*?)(\s|$))");
             if (regex_search(comment, match, rx2) && match.size() > 1) {
-                vector<string> checks = clazy::splitString(match[1], ',');
+                std::vector<std::string> checks = clazy::splitString(match[1], ',');
 
-                for (const string &checkName : checks) {
+                for (const std::string &checkName : checks) {
                     suppressions.checksToSkipByLine.insert(LineAndCheckName(lineNumber, checkName));
                 }
             }

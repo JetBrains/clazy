@@ -1,8 +1,9 @@
 {
-    "minimum_qt_version" : 50800,
-    "tests" : [
+    "minimum_qt_version": 50800,
+    "tests": [
         {
-            "filename" : "main.cpp"
+            "filename": "main.cpp",
+            "has_fixits": true
         }
     ]
 }
