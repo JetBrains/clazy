@@ -120,9 +120,9 @@ macro(link_to_llvm name is_standalone)
 
       target_link_libraries(${name} ${clang_lib})
     endforeach()
-    target_link_libraries(${name} clangTooling)
-    target_link_libraries(${name} clangToolingCore)
-    target_link_libraries(${name} ${clang_tooling_refactoring_lib})
+    target_link_libraries(${name} PRIVATE clangTooling)
+    target_link_libraries(${name} PRIVATE clangToolingCore)
+    target_link_libraries(${name} PRIVATE ${clang_tooling_refactoring_lib})
   endif()
 
   foreach(llvm_lib ${LLVM_LIBS})
@@ -145,7 +145,7 @@ macro(link_to_llvm name is_standalone)
   endforeach()
 
   if(WIN32)
-    target_link_libraries(${name} version.lib)
+    target_link_libraries(${name} PRIVATE version.lib)
   endif()
   if (CLAZY_USES_BOOST_REGEX)
     target_link_libraries(${name} ${Boost_LIBRARIES})
@@ -294,16 +294,17 @@ else()
     clangStaticAnalyzerCore
     clangStaticAnalyzerFrontend
     )
-  add_executable(clazy-standalone ${CLAZY_STANDALONE_SRCS})
 
-  if (WIN32 AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    target_link_options(clazyPlugin PUBLIC LINKER:--exclude-all-symbols)
-  endif()
-  target_link_libraries(clazy-standalone clazyPlugin)
+  set_property(TARGET clazyPlugin PROPERTY VERSION)
+  set_property(TARGET clazyPlugin PROPERTY SOVERSION)
 
+  add_clang_tool(clazy-standalone ${CLAZY_STANDALONE_SRCS})
+  target_link_libraries(clazy-standalone PRIVATE clazyPlugin)
   link_to_llvm(clazy-standalone TRUE)
 
-  install(TARGETS clazy-standalone DESTINATION bin PERMISSIONS OWNER_WRITE OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_READ WORLD_EXECUTE)
+  if (WIN32 AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+      target_link_options(clazyPlugin PUBLIC LINKER:--exclude-all-symbols)
+  endif()
 endif()
 
 function(to_raw_string_literal input_string output_string)
