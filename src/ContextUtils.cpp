@@ -81,7 +81,7 @@ std::string clazy::getMostNeededQualifiedName(const SourceManager &sourceManager
                 continue;
             }
 
-            visibleContexts.push_back(ns->getOriginalNamespace());
+            visibleContexts.push_back(ns->getFirstDecl());
         }
     }
 
