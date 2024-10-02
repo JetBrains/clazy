@@ -188,10 +188,8 @@ void FixItExporter::Export()
 void FixItExporter::Diag(SourceLocation Loc, unsigned DiagID)
 {
     // When producing this diagnostic, we temporarily bypass ourselves,
-    // clear out any current diagnostic, and let the downstream client
-    // format the diagnostic.
+    // and let the downstream client format the diagnostic.
     DiagEngine.setClient(Client, false);
-    DiagEngine.Clear();
     DiagEngine.Report(Loc, DiagID);
     DiagEngine.setClient(this, false);
 }
