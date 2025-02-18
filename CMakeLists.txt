@@ -299,7 +299,6 @@ else()
     clangParse
     clangLex
     clangBasic
-    clangARCMigrate
     clangEdit
     clangFrontendTool
     clangRewrite
