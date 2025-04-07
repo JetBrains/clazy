@@ -17,12 +17,6 @@
 #include <clang/Basic/LLVM.h>
 #include <llvm/Support/Casting.h>
 
-namespace clang
-{
-class Decl;
-class FunctionDecl;
-} // namespace clang
-
 using namespace clang;
 
 ConstSignalOrSlot::ConstSignalOrSlot(const std::string &name, ClazyContext *context)
@@ -34,7 +28,7 @@ ConstSignalOrSlot::ConstSignalOrSlot(const std::string &name, ClazyContext *cont
 void ConstSignalOrSlot::VisitStmt(clang::Stmt *stmt)
 {
     auto *call = dyn_cast<CallExpr>(stmt);
-    AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
+    const AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
     if (!call || !accessSpecifierManager) {
         return;
     }
@@ -67,7 +61,7 @@ void ConstSignalOrSlot::VisitDecl(Decl *decl)
         return;
     }
 
-    AccessSpecifierManager *a = m_context->accessSpecifierManager;
+    const AccessSpecifierManager *a = m_context->accessSpecifierManager;
     if (!a) {
         return;
     }
@@ -76,7 +70,7 @@ void ConstSignalOrSlot::VisitDecl(Decl *decl)
         return;
     }
 
-    CXXRecordDecl *record = method->getParent();
+    const CXXRecordDecl *record = method->getParent();
     if (clazy::derivesFrom(record, "QDBusAbstractInterface")) {
         return;
     }

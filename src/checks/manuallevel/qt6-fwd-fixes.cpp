@@ -127,11 +127,9 @@ void Qt6FwdFixes::VisitDecl(clang::Decl *decl)
     auto warningLocation = beginLoc;
     SourceRange fixitRange = SourceRange(beginLoc, endLoc);
 
-    std::string replacement;
     CharSourceRange controledFixitRange = CharSourceRange(fixitRange, false);
     if (!m_including_qcontainerfwd) {
-        replacement += "#include <QtCore/qcontainerfwd.h>\n";
-        fixits.push_back(FixItHint::CreateReplacement(controledFixitRange, replacement));
+        fixits.push_back(FixItHint::CreateReplacement(controledFixitRange, "#include <QtCore/qcontainerfwd.h>\n"));
     } else {
         fixits.push_back(FixItHint::CreateRemoval(controledFixitRange));
     }
@@ -157,7 +155,12 @@ void Qt6FwdFixes::VisitInclusionDirective(clang::SourceLocation HashLoc,
                                           clazy::OptionalFileEntryRef /*File*/,
                                           clang::StringRef /*SearchPath*/,
                                           clang::StringRef /*RelativePath*/,
+#if LLVM_VERSION_MAJOR >= 19
+                                          const clang::Module * /*SuggestedModule*/,
+                                          bool /*ModuleImported*/,
+#else
                                           const clang::Module * /*Imported*/,
+#endif
                                           clang::SrcMgr::CharacteristicKind /*FileType*/)
 {
     auto current_file = m_sm.getFilename(HashLoc);

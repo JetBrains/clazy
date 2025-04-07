@@ -21,11 +21,6 @@
 
 #include <vector>
 
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 static bool hasMutexes(Stmt *body)
@@ -33,7 +28,7 @@ static bool hasMutexes(Stmt *body)
     auto declrefs = clazy::getStatements<DeclRefExpr>(body);
     for (auto *declref : declrefs) {
         ValueDecl *valueDecl = declref->getDecl();
-        if (CXXRecordDecl *record = clazy::typeAsRecord(valueDecl->getType())) {
+        if (const CXXRecordDecl *record = clazy::typeAsRecord(valueDecl->getType())) {
             if (clazy::name(record) == "QMutex" || clazy::name(record) == "QBasicMutex") {
                 return true;
             }
@@ -111,7 +106,7 @@ void ThreadWithSlots::VisitDecl(Decl *decl)
     auto memberexprs = clazy::getStatements<MemberExpr>(body);
     for (auto *memberexpr : memberexprs) {
         ValueDecl *valueDecl = memberexpr->getMemberDecl();
-        if (CXXRecordDecl *record = clazy::typeAsRecord(valueDecl->getType())) {
+        if (const CXXRecordDecl *record = clazy::typeAsRecord(valueDecl->getType())) {
             if (clazy::name(record) == "QMutex" || clazy::name(record) == "QBasicMutex") {
                 return;
             }

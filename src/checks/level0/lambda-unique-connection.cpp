@@ -18,12 +18,6 @@
 
 #include <vector>
 
-class ClazyContext;
-namespace clang
-{
-class CXXMethodDecl;
-} // namespace clang
-
 using namespace clang;
 
 LambdaUniqueConnection::LambdaUniqueConnection(const std::string &name, ClazyContext *context)
@@ -75,7 +69,7 @@ void LambdaUniqueConnection::VisitStmt(clang::Stmt *stmt)
         return;
     }
 
-    CXXMethodDecl *method = clazy::pmfFromConnect(call, 3);
+    const CXXMethodDecl *method = clazy::pmfFromConnect(call, 3);
     if (method) {
         // How else to detect if it's the right overload ? It's all templated stuff with the same
         // names for all the template arguments

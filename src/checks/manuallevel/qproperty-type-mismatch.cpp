@@ -27,12 +27,6 @@
 #include <cctype>
 #include <string_view>
 
-namespace clang
-{
-class Decl;
-class MacroInfo;
-} // namespace clang
-
 using namespace clang;
 
 QPropertyTypeMismatch::QPropertyTypeMismatch(const std::string &name, ClazyContext *context)
@@ -278,7 +272,7 @@ void QPropertyTypeMismatch::VisitMacroExpands(const clang::Token &MacroNameTok, 
     // Handle Q_PROPERTY functions
     enum { None, Read, Write, Notify } next = None;
 
-    for (std::string_view &token : split) {
+    for (const std::string_view &token : split) {
         switch (next) {
         case None: {
             if (token == "READ"sv) {

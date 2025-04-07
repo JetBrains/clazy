@@ -14,8 +14,6 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 
-class ClazyContext;
-
 using namespace clang;
 
 RawEnvironmentFunction::RawEnvironmentFunction(const std::string &name, ClazyContext *context)
@@ -30,7 +28,7 @@ void RawEnvironmentFunction::VisitStmt(clang::Stmt *stmt)
         return;
     }
 
-    FunctionDecl *func = callexpr->getDirectCallee();
+    const FunctionDecl *func = callexpr->getDirectCallee();
     if (!func) {
         return;
     }

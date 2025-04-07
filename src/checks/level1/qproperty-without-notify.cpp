@@ -15,12 +15,6 @@
 
 #include <vector>
 
-class ClazyContext;
-namespace clang
-{
-class MacroInfo;
-} // namespace clang
-
 using namespace clang;
 
 QPropertyWithoutNotify::QPropertyWithoutNotify(const std::string &name, ClazyContext *context)

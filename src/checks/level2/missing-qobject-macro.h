@@ -9,16 +9,11 @@
 
 #include "checkbase.h"
 
-#include <clang/Basic/SourceLocation.h>
-
 #include <string>
 #include <vector>
 
-class ClazyContext;
-
 namespace clang
 {
-class Decl;
 class SourceLocation;
 class MacroInfo;
 class Token;

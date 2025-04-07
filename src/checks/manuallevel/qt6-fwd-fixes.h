@@ -12,14 +12,6 @@
 
 #include <string>
 
-class ClazyContext;
-
-namespace clang
-{
-class Stmt;
-class FixItHint;
-}
-
 /**
  * Replaces forward declaration with #include <QtCore/qcontainerfwd.h>.
  *
@@ -38,7 +30,12 @@ public:
                                  clazy::OptionalFileEntryRef File,
                                  clang::StringRef SearchPath,
                                  clang::StringRef RelativePath,
+#if LLVM_VERSION_MAJOR >= 19
+                                 const clang::Module *SuggestedModule,
+                                 bool ModuleImported,
+#else
                                  const clang::Module *Imported,
+#endif
                                  clang::SrcMgr::CharacteristicKind FileType) override;
     bool m_including_qcontainerfwd = false;
     std::set<clang::StringRef> m_qcontainerfwd_included_in_files;

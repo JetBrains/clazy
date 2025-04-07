@@ -11,12 +11,6 @@
 
 #include <string>
 
-class ClazyContext;
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 /**
  * See README-mutable-container-key for more info.
  */

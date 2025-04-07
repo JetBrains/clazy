@@ -11,14 +11,6 @@
 
 #include <string>
 
-class ClazyContext;
-
-namespace clang
-{
-class Stmt;
-class Decl;
-}
-
 /**
  * Finds polymorphic classes without Q_DISABLE_COPY
  *

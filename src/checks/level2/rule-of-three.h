@@ -11,13 +11,6 @@
 
 #include <string>
 
-class ClazyContext;
-
-namespace clang
-{
-class Decl;
-}
-
 /**
  * Finds classes or structs which violate the rule of three.
  * If a class has dtor, copy-dtor or copy-assign operator it should have all three.

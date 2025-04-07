@@ -22,8 +22,6 @@
 
 #include <vector>
 
-class ClazyContext;
-
 using namespace clang;
 
 ChildEventQObjectCast::ChildEventQObjectCast(const std::string &name, ClazyContext *context)
@@ -58,7 +56,7 @@ void ChildEventQObjectCast::VisitDecl(Decl *decl)
             continue;
         }
 
-        FunctionDecl *fdecl = callExpr->getDirectCallee();
+        const FunctionDecl *fdecl = callExpr->getDirectCallee();
         if (fdecl && clazy::name(fdecl) == "qobject_cast") {
             auto *childCall = dyn_cast<CXXMemberCallExpr>(callExpr->getArg(0));
             // The call to event->child()

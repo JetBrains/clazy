@@ -357,9 +357,8 @@ void Qt6DeprecatedAPIFixes::VisitDecl(clang::Decl *decl)
     }
 
     std::vector<FixItHint> fixits;
-#if LLVM_VERSION_MAJOR >= 10
-    const std::string type = qualType.getAsString();
 
+    const std::string type = qualType.getAsString();
     if (clazy::endsWith(type, "QString::SplitBehavior")) {
         bool isQtNamespaceExplicit = false;
         DeclContext *newcontext = clazy::contextForDecl(m_context->lastDecl);
@@ -383,7 +382,6 @@ void Qt6DeprecatedAPIFixes::VisitDecl(clang::Decl *decl)
         SourceRange sourceRange(declaratorDecl->getTypeSpecStartLoc(), declaratorDecl->getTypeSpecEndLoc());
         fixits.push_back(FixItHint::CreateReplacement(sourceRange, replacement));
     }
-#endif
 
     emitWarning(decl->getBeginLoc(), message, fixits);
     return;
@@ -491,7 +489,12 @@ void Qt6DeprecatedAPIFixes::fixForDeprecatedOperator(Stmt *stmt, const std::stri
             }
             auto *uni = dyn_cast<UnaryOperator>(child);
             if (uni) {
-                if (clang::UnaryOperator::getOpcodeStr(uni->getOpcode()) == "*") {
+#if LLVM_VERSION_MAJOR >= 19
+#define STRING_EQUALS(a, b) a == b
+#else
+#define STRING_EQUALS(a, b) a.equals(b)
+#endif
+                if (STRING_EQUALS(clang::UnaryOperator::getOpcodeStr(uni->getOpcode()), "*")) {
                     isPointer = true;
                 }
             }
@@ -561,7 +564,7 @@ void Qt6DeprecatedAPIFixes::VisitStmt(clang::Stmt *stmt)
             return;
         }
         Stmt *child = clazy::childAt(stmt, 0);
-        DeclRefExpr *decl;
+        DeclRefExpr *decl = nullptr;
         while (child) {
             decl = dyn_cast<DeclRefExpr>(child);
             if (!decl) {
@@ -759,7 +762,7 @@ void Qt6DeprecatedAPIFixes::VisitStmt(clang::Stmt *stmt)
             }
             emitWarning(warningLocation, message, fixits);
             return;
-        } else if (clazy::startsWith(className, "QGraphicsView") && qGraphicsViewFunctions.find(functionName) != qMapFunctions.end()) {
+        } else if (clazy::startsWith(className, "QGraphicsView") && qGraphicsViewFunctions.find(functionName) != qGraphicsViewFunctions.end()) {
             warningForGraphicsViews(functionName, message);
             emitWarning(warningLocation, message, fixits);
             return;

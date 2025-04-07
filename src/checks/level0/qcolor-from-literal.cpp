@@ -20,8 +20,6 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 
-class ClazyContext;
-
 using namespace clang;
 using namespace clang::ast_matchers;
 
@@ -48,7 +46,7 @@ static bool isQuadrupleDigitRgb(llvm::StringRef ref)
 
 static bool isStringColorLiteralPattern(StringRef str)
 {
-    if (!str.starts_with("#")) {
+    if (!clazy::startsWith(str, "#")) {
         return false;
     }
     return isSingleDigitRgb(str) || isDoubleDigitRgb(str) || isDoubleDigitRgba(str) || isTripleDigitRgb(str) || isQuadrupleDigitRgb(str);
@@ -76,7 +74,7 @@ public:
         }
 
         llvm::StringRef str = lt->getString();
-        if (!str.starts_with("#")) {
+        if (!clazy::startsWith(str, "#")) {
             return;
         }
 

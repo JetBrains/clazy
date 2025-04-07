@@ -12,12 +12,6 @@
 #include <string>
 #include <vector>
 
-class ClazyContext;
-namespace clang
-{
-class Stmt;
-} // namespace clang
-
 /**
  * See README-no-module-include.md for more info.
  */
@@ -33,7 +27,12 @@ public:
                                  clazy::OptionalFileEntryRef File,
                                  clang::StringRef SearchPath,
                                  clang::StringRef RelativePath,
+#if LLVM_VERSION_MAJOR >= 19
+                                 const clang::Module *SuggestedModule,
+                                 bool ModuleImported,
+#else
                                  const clang::Module *Imported,
+#endif
                                  clang::SrcMgr::CharacteristicKind FileType) override;
 
 private:

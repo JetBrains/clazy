@@ -13,11 +13,6 @@
 #include <clang/Basic/LLVM.h>
 #include <llvm/Support/Casting.h>
 
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 VirtualSignal::VirtualSignal(const std::string &name, ClazyContext *context)
@@ -33,7 +28,7 @@ void VirtualSignal::VisitDecl(Decl *stmt)
         return;
     }
 
-    AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
+    const AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
     if (!accessSpecifierManager) {
         return;
     }

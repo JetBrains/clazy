@@ -1,24 +1,31 @@
 # Changelog
 
-* v1.12 (June 30th 2024)
+* v1.13 (December 28, 2024)
+   - New Checks:
+     - used-qunused-variable
+   - qstring-arg check provides a fix-it
+   - Fixed unused-non-trivial-variable to not warn when [[maybe_unused]] set
+   - Fixed qstring-arg for upcoming Qt 6.9
+   - Fixed fully-qualified-moc-types false positive for const modifiers of generic arguments
+   - Silence false positive non-pod-global-static warning for QML module initialization
+   - Fix function-args-by-value false positive that would cause compile error
+   in copy constructors, assignment operators and equal checks
+   - False positives for `Q_EMIT(someSignal())` are now fixed
+
+
+* v1.12 (June 30, 2024)
     - New Checks:
       - qt-keyword-emit
       - sanitize-inline-keyword
-      - no-module-include
-    - Support for LLVM 18
-    - Fixit for QFileInfo::exists
-    - Fixit for qstring-arg
-    - Removed Qt4 compatibility
-    - 2 years worth of bug fixes
 
-* v1.11 (January 21st 2022)
+* v1.11 (January 21st, 2022)
     - New Checks:
       - use-arrow-operator-instead-of-data
       - use-static-qregularexpression
       - unexpected-flag-enumerator-value
       - Removed inefficient-qlist check (Fixed in Qt6)
 
-* v1.10 (July 20th 2021)
+* v1.10 (July 20th, 2021)
    - Requires C++17
    - Fixed a -Wclazy-lambda-in-connect false-positive
    - Fixed crash in copyable-polymorphic when PCH was enabled
@@ -181,3 +188,5 @@
 
 * v0.0.1 (June 10th, 2015)
   - (...)
+
+  - <dont forget changelog entry for used-qunused-variable>

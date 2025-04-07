@@ -11,12 +11,6 @@
 
 #include <string>
 
-class ClazyContext;
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 /**
  * See README-ctor-missing-parent-argument for more info.
  */

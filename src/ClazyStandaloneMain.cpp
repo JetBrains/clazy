@@ -93,17 +93,13 @@ static cl::extrahelp s_commonHelp(CommonOptionsParser::HelpMessage);
 class ClazyToolActionFactory : public clang::tooling::FrontendActionFactory
 {
 public:
-    ClazyToolActionFactory(std::vector<std::string> paths)
+    explicit ClazyToolActionFactory(std::vector<std::string> paths)
         : FrontendActionFactory()
         , m_paths(std::move(paths))
     {
     }
 
-#if LLVM_VERSION_MAJOR >= 10
     std::unique_ptr<FrontendAction> create() override
-#else
-    FrontendAction *create() override
-#endif
     {
         ClazyContext::ClazyOptions options = ClazyContext::ClazyOption_None;
 
@@ -126,8 +122,7 @@ public:
         if (s_ignoreIncludedFiles.getValue()) {
             options |= ClazyContext::ClazyOption_IgnoreIncludedFiles;
         }
-
-        // TODO: We need to agregate the fixes with previous run
+        // TODO: We need to aggregate the fixes with previous run
         return std::make_unique<ClazyStandaloneASTAction>(s_checks.getValue(),
                                                           s_headerFilter.getValue(),
                                                           s_ignoreDirs.getValue(),
@@ -135,6 +130,8 @@ public:
                                                           m_paths,
                                                           options);
     }
+
+private:
     std::vector<std::string> m_paths;
 };
 

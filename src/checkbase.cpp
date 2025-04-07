@@ -89,17 +89,35 @@ void ClazyPreprocessorCallbacks::MacroDefined(const Token &macroNameTok, const M
 
 void ClazyPreprocessorCallbacks::InclusionDirective(clang::SourceLocation HashLoc,
                                                     const clang::Token &IncludeTok,
-                                                    clang::StringRef FileName,
+                                                    llvm::StringRef FileName,
                                                     bool IsAngled,
                                                     clang::CharSourceRange FilenameRange,
                                                     clazy::OptionalFileEntryRef File,
-                                                    clang::StringRef SearchPath,
-                                                    clang::StringRef RelativePath,
+                                                    llvm::StringRef SearchPath,
+                                                    llvm::StringRef RelativePath,
+#if LLVM_VERSION_MAJOR >= 19
                                                     const clang::Module *SuggestedModule,
-                                                    bool,
+                                                    bool ModuleImported,
+#else
+                                                    const clang::Module *Imported,
+#endif
                                                     clang::SrcMgr::CharacteristicKind FileType)
 {
-    check->VisitInclusionDirective(HashLoc, IncludeTok, FileName, IsAngled, FilenameRange, File, SearchPath, RelativePath, SuggestedModule, FileType);
+    check->VisitInclusionDirective(HashLoc,
+                                   IncludeTok,
+                                   FileName,
+                                   IsAngled,
+                                   FilenameRange,
+                                   File,
+                                   SearchPath,
+                                   RelativePath,
+#if LLVM_VERSION_MAJOR >= 19
+                                   SuggestedModule,
+                                   ModuleImported,
+#else
+                                   Imported,
+#endif
+                                   FileType);
 }
 
 CheckBase::CheckBase(const std::string &name, const ClazyContext *context, Options options)
@@ -174,13 +192,16 @@ void CheckBase::VisitEndif(SourceLocation, SourceLocation)
 
 void CheckBase::VisitInclusionDirective(clang::SourceLocation,
                                         const clang::Token &,
-                                        clang::StringRef,
+                                        llvm::StringRef,
                                         bool,
                                         clang::CharSourceRange,
                                         clazy::OptionalFileEntryRef,
-                                        clang::StringRef,
-                                        clang::StringRef,
+                                        llvm::StringRef,
+                                        llvm::StringRef,
                                         const clang::Module *,
+#if LLVM_VERSION_MAJOR >= 19
+                                        bool ModuleImported,
+#endif
                                         clang::SrcMgr::CharacteristicKind)
 {
     // Overriden in derived classes

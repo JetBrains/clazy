@@ -13,13 +13,6 @@
 
 #include <string>
 
-class ClazyContext;
-namespace clang
-{
-class MacroInfo;
-class Token;
-} // namespace clang
-
 /**
  * See README-qenums for more info.
  */

@@ -89,14 +89,18 @@ public:
     void Endif(clang::SourceLocation loc, clang::SourceLocation ifLoc) override;
     void InclusionDirective(clang::SourceLocation HashLoc,
                             const clang::Token &IncludeTok,
-                            clang::StringRef FileName,
+                            llvm::StringRef FileName,
                             bool IsAngled,
                             clang::CharSourceRange FilenameRange,
                             clazy::OptionalFileEntryRef File,
-                            clang::StringRef SearchPath,
-                            clang::StringRef RelativePath,
+                            llvm::StringRef SearchPath,
+                            llvm::StringRef RelativePath,
+#if LLVM_VERSION_MAJOR >= 19
                             const clang::Module *SuggestedModule,
-                            bool,
+                            bool ModuleImported,
+#else
+                            const clang::Module *Imported,
+#endif
                             clang::SrcMgr::CharacteristicKind FileType) override;
 
 private:
@@ -160,13 +164,18 @@ protected:
     virtual void VisitEndif(clang::SourceLocation loc, clang::SourceLocation ifLoc);
     virtual void VisitInclusionDirective(clang::SourceLocation HashLoc,
                                          const clang::Token &IncludeTok,
-                                         clang::StringRef FileName,
+                                         llvm::StringRef FileName,
                                          bool IsAngled,
                                          clang::CharSourceRange FilenameRange,
                                          clazy::OptionalFileEntryRef File,
-                                         clang::StringRef SearchPath,
-                                         clang::StringRef RelativePath,
+                                         llvm::StringRef SearchPath,
+                                         llvm::StringRef RelativePath,
+#if LLVM_VERSION_MAJOR >= 19
+                                         const clang::Module *SuggestedModule,
+                                         bool ModuleImported,
+#else
                                          const clang::Module *Imported,
+#endif
                                          clang::SrcMgr::CharacteristicKind FileType);
 
     void enablePreProcessorCallbacks();

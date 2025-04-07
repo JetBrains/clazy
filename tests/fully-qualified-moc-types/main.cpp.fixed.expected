@@ -92,6 +92,24 @@ public Q_SLOTS:
     inline void nestedNotFullyQualifiedGeneric(QDBusPendingReply<std::shared_ptr<MyObj2::MyList>>) {} // WARN
     inline const MyObj2::MyList& notQualWithModifier() {return lst;};
     DummyListAlias<int> myList() { return {1,2,3};};
+
+    // const modifiers
+    inline std::shared_ptr<const MyObj2::QualMe> returnSharedPtrNotQual() // WARN
+    {
+        return std::shared_ptr<const QualMe>(new QualMe());
+    }
+    inline std::shared_ptr<const MyObj2::QualMe> returnSharedPtr()
+    {
+        return std::shared_ptr<const QualMe>(new QualMe());
+    }
+    inline std::shared_ptr<const     MyObj2::QualMe> returnSharedPtrSpaces()
+    {
+        return std::shared_ptr<const QualMe>(new QualMe());
+    }
+    inline const MyObj2::QualMe returnConstNoGeneric()
+    {
+        return QualMe();
+    }
 private:
     MyList lst;
 };
@@ -101,6 +119,8 @@ Q_DECLARE_METATYPE(std::shared_ptr<MyObj2::MyList>);
 
 #if QT_VERSION_MAJOR == 5
 #include "main.qt5.moc_"
+#elif Q_MOC_OUTPUT_REVISION == 69
+#include "main.qt6.moc_69"
 #else
 #include "main.qt6.moc_"
 #endif

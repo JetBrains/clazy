@@ -30,12 +30,6 @@
 #include <unordered_map>
 #include <vector>
 
-namespace clang
-{
-class Decl;
-class DeclContext;
-} // namespace clang
-
 using namespace clang;
 
 Foreach::Foreach(const std::string &name, ClazyContext *context)
@@ -46,7 +40,7 @@ Foreach::Foreach(const std::string &name, ClazyContext *context)
 
 void Foreach::VisitStmt(clang::Stmt *stmt)
 {
-    PreProcessorVisitor *preProcessorVisitor = m_context->preprocessorVisitor;
+    const PreProcessorVisitor *preProcessorVisitor = m_context->preprocessorVisitor;
     if (!preProcessorVisitor || preProcessorVisitor->qtVersion() >= 50900) {
         // Disabled since 5.9 because the Q_FOREACH internals changed.
         // Not worth fixing it because range-loop is recommended
@@ -68,7 +62,7 @@ void Foreach::VisitStmt(clang::Stmt *stmt)
         return;
     }
 
-    CXXConstructorDecl *constructorDecl = constructExpr->getConstructor();
+    const CXXConstructorDecl *constructorDecl = constructExpr->getConstructor();
     if (!constructorDecl || clazy::name(constructorDecl) != "QForeachContainer") {
         return;
     }

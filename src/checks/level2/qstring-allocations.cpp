@@ -3,6 +3,7 @@
     SPDX-FileContributor: Sérgio Martins <sergio.martins@kdab.com>
 
     SPDX-FileCopyrightText: 2015 Sergio Martins <smartins@kde.org>
+    SPDX-FileCopyrightText: 2024 Alexander Lohnau <alexander.lohnau@gmx.de>
 
     SPDX-License-Identifier: LGPL-2.0-or-later
 */
@@ -35,13 +36,6 @@
 
 #include <utility>
 
-namespace clang
-{
-class LangOptions;
-class ParentMap;
-class SourceManager;
-} // namespace clang
-
 using namespace clang;
 
 inline bool hasCharPtrArgument(clang::FunctionDecl *func, int expected_arguments = -1)
@@ -51,13 +45,7 @@ inline bool hasCharPtrArgument(clang::FunctionDecl *func, int expected_arguments
     }
 
     for (auto *param : Utils::functionParameters(func)) {
-        clang::QualType qt = param->getType();
-        const clang::Type *t = qt.getTypePtrOrNull();
-        if (!t) {
-            continue;
-        }
-
-        if (const clang::Type *realT = t->getPointeeType().getTypePtrOrNull(); realT && realT->isCharType()) {
+        if (clazy::startsWith(param->getType().getAsString(), "const char *")) { // On Qt6.8, an "&" is at the end
             return true;
         }
     }
@@ -614,21 +602,29 @@ void QStringAllocations::VisitOperatorCall(Stmt *stm)
     }
 
     auto *methodDecl = dyn_cast<CXXMethodDecl>(funcDecl);
-    if (!clazy::isOfClass(methodDecl, "QString")) {
+    if (methodDecl && !clazy::isOfClass(methodDecl, "QString")) {
         return;
     }
 
-    if (!hasCharPtrArgument(methodDecl)) {
+    // For Qt6.8, we have the operators in the QString class deprecated and have defined them using macros
+    // Meaning we only have a function and /not/ a method
+    if (!methodDecl && funcDecl->isThisDeclarationADefinition() && funcDecl->getBeginLoc().isValid()) {
+        StringRef fileName = sm().getFilename(sm().getExpansionLoc(funcDecl->getBeginLoc()));
+        if (!fileName.contains("qstring.h")) {
+            return;
+        }
+    }
+
+    if (!hasCharPtrArgument(funcDecl)) {
         return;
     }
 
     std::vector<FixItHint> fixits;
 
     std::vector<StringLiteral *> literals;
-    clazy::getChilds<StringLiteral>(stm, literals, 2);
+    clazy::getChilds<StringLiteral>(stm, literals, 3);
 
     if (!isOptionSet("no-msvc-compat") && !literals.empty()) {
-        llvm::errs() << "literal non empty\n";
         if (literals[0]->getNumConcatenated() > 1) {
             return; // Nothing to do here, MSVC doesn't like it
         }

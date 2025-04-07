@@ -31,11 +31,6 @@
 #include <iterator>
 #include <vector>
 
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 // TODO, go over all these
@@ -69,10 +64,9 @@ bool FunctionArgsByValue::shouldIgnoreClass(CXXRecordDecl *record)
 
 bool FunctionArgsByValue::shouldIgnoreOperator(FunctionDecl *function)
 {
-    // Too many warnings in operator<<
-    static const std::vector<StringRef> ignoreList = {"operator<<"};
-
-    return clazy::contains(ignoreList, clazy::name(function));
+    OverloadedOperatorKind op = function->getOverloadedOperator();
+    // Too many warnings in operator<<, unrelated warnings for = or == operators
+    return op == clang::OO_LessLess || op == clang::OO_Equal || op == clang::OO_EqualEqual;
 }
 
 bool FunctionArgsByValue::shouldIgnoreFunction(clang::FunctionDecl *function)
@@ -116,6 +110,11 @@ void FunctionArgsByValue::processFunction(FunctionDecl *func)
         return;
     }
 
+    if (func->isDefaulted()) {
+        // The C++ compiler enforces refs or do being used for defaulted methods
+        // https://invent.kde.org/sdk/clazy/-/issues/25
+        return;
+    }
     auto *ctor = dyn_cast<CXXConstructorDecl>(func);
     if (ctor && ctor->isCopyConstructor()) {
         return; // copy-ctor must take by ref

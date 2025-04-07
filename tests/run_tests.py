@@ -457,6 +457,8 @@ parser.add_argument("--only-standalone", action='store_true',
                     help='Only run clazy-standalone')
 parser.add_argument("--dump-ast", action='store_true',
                     help='Dump a unit-test AST to file')
+parser.add_argument("--qt-versions", type=int, choices=[5, 6], nargs='+', default=[5, 6],
+                    help='Specify one or more Qt versions to use (default: 5 and 6)')
 parser.add_argument(
     "--exclude", help='Comma separated list of checks to ignore')
 parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
@@ -481,23 +483,29 @@ _only_standalone = args.only_standalone
 _num_threads = args.jobs
 _lock = threading.Lock()
 _was_successful = True
-_qt6_installation = find_qt_installation(
-    6, ["QT_SELECT=6 qmake", "qmake-qt6", "qmake", "qmake6"])
-_qt5_installation = find_qt_installation(
-    5, ["QT_SELECT=5 qmake", "qmake-qt5", "qmake", "qmake5"])
+if 6 in args.qt_versions:
+    _qt6_installation = find_qt_installation(6, ["QT_SELECT=6 qmake", "qmake-qt6", "qmake", "qmake6"])
+else:
+    _qt6_installation = None
+if 5 in args.qt_versions:
+    _qt5_installation = find_qt_installation(5, ["QT_SELECT=5 qmake", "qmake-qt5", "qmake", "qmake5"])
+else:
+    _qt5_installation = None
+if (_qt5_installation == None or _qt5_installation.int_version == 0) \
+    and (_qt6_installation == None or _qt6_installation.int_version == 0):
+    sys.exit(1)
 _excluded_checks = args.exclude.split(',') if args.exclude is not None else []
 
 # -------------------------------------------------------------------------------
 # utility functions #2
 
 version, success = get_command_output(compiler_name() + ' --version')
-match = re.search('clang version ([^\s-]+)', version)
+match = re.search('clang version ([^\\s-]+)', version)
 try:
     version = match.group(1)
 except:
     # Now try the Clazy.AppImage way
     match = re.search('clang version: (.*)', version)
-
     try:
         version = match.group(1)
     except:
@@ -697,6 +705,8 @@ def run_unit_test(test, is_standalone, cppStandard, qt_major_version):
         return True
 
     qt = qt_installation(qt_major_version)
+    if qt == None:
+        return True # silently skip
 
     if _verbose:
         print("Qt major versions required by the test: " + str(test.qt_major_versions))
@@ -709,14 +719,12 @@ def run_unit_test(test, is_standalone, cppStandard, qt_major_version):
 
     if qt.int_version < test.minimum_qt_version or qt.int_version > test.maximum_qt_version or CLANG_VERSION < test.minimum_clang_version:
         if (_verbose):
-            print("Skipping " + printableName +
-                  " because required version is not available")
+            print("Skipping " + printableName + " because required version is not available")
         return True
 
     if test.requires_std_filesystem and not _hasStdFileSystem:
         if (_verbose):
-            print("Skipping " + printableName +
-                  " because it requires std::filesystem")
+            print("Skipping " + printableName + " because it requires std::filesystem")
         return True
 
     if _platform in test.blacklist_platforms:

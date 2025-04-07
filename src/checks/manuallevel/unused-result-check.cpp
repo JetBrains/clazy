@@ -15,14 +15,13 @@
 #include <clang/ASTMatchers/ASTMatchersInternal.h>
 
 using namespace clang::ast_matchers;
-class ClazyContext;
 
 using namespace clang;
 
 class Caller : public ClazyAstMatcherCallback
 {
 public:
-    Caller(CheckBase *check)
+    explicit Caller(CheckBase *check)
         : ClazyAstMatcherCallback(check)
     {
     }

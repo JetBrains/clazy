@@ -63,6 +63,11 @@ public:
         ClazyOption_CLionMode = 64
     };
     using ClazyOptions = int;
+#if LLVM_VERSION_MAJOR >= 16
+    using OptionalFileEntryRef = clang::CustomizableOptional<clang::FileEntryRef>;
+#else
+    using OptionalFileEntryRef = clang::Optional<clang::FileEntryRef>;
+#endif
 
     explicit ClazyContext(const clang::CompilerInstance &ci,
                           const std::string &headerFilter,
@@ -107,8 +112,7 @@ public:
         return clazy::contains(extraOptions, optionName);
     }
 
-
-    bool fileMatchesLoc(const std::unique_ptr<llvm::Regex> &regex, clang::SourceLocation loc, clang::OptionalFileEntryRef &file) const
+    bool fileMatchesLoc(const std::unique_ptr<llvm::Regex> &regex, clang::SourceLocation loc, ClazyContext::OptionalFileEntryRef &file) const
     {
         if (!regex) {
             return false;
@@ -122,14 +126,13 @@ public:
             }
         }
 
-        llvm::StringRef fileName(file->getName());
-        return regex->match(fileName);
+        return regex->match(file->getName());
     }
 
     bool shouldIgnoreFile(clang::SourceLocation loc) const
     {
         // 1. Process the regexp that excludes files
-        clang::OptionalFileEntryRef file;
+        ClazyContext::OptionalFileEntryRef file;
         if (ignoreDirsRegex) {
             const bool matches = fileMatchesLoc(ignoreDirsRegex, loc, file);
             if (matches) {

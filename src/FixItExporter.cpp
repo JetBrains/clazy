@@ -56,7 +56,7 @@ void FixItExporter::BeginSourceFile(const LangOptions &LangOpts, const Preproces
 
     const auto id = SourceMgr.getMainFileID();
     const auto entry = SourceMgr.getFileEntryRefForID(id);
-    getTuDiag().MainSourceFile = static_cast<std::string>(entry->getName());
+    getTuDiag().MainSourceFile = entry->getName().str();
 }
 
 bool FixItExporter::IncludeInDiagnosticCounts() const

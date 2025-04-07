@@ -16,12 +16,6 @@
 #include <clang/Basic/Specifiers.h>
 #include <llvm/Support/Casting.h>
 
-class ClazyContext;
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 /// Returns whether the class has non-private copy-ctor or copy-assign
@@ -49,7 +43,7 @@ static bool hasPublicCopyInAncestors(const CXXRecordDecl *record)
 
     for (auto base : record->bases()) {
         if (const Type *t = base.getType().getTypePtrOrNull()) {
-            CXXRecordDecl *baseRecord = t->getAsCXXRecordDecl();
+            const CXXRecordDecl *baseRecord = t->getAsCXXRecordDecl();
             if (hasPublicCopy(baseRecord)) {
                 return true;
             }

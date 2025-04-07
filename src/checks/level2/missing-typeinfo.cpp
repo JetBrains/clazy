@@ -19,12 +19,6 @@
 #include <clang/Basic/SourceManager.h>
 #include <llvm/ADT/StringRef.h>
 
-class ClazyContext;
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 /**

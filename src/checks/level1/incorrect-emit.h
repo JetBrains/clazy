@@ -12,17 +12,11 @@
 #include <clang/Basic/SourceLocation.h>
 
 #include <string>
-#include <unordered_map>
 #include <vector>
-
-class ClazyContext;
 
 namespace clang
 {
 class CXXMemberCallExpr;
-class MacroInfo;
-class Stmt;
-class Token;
 }
 
 /**
@@ -39,7 +33,6 @@ private:
     void VisitMacroExpands(const clang::Token &MacroNameTok, const clang::SourceRange &range, const clang::MacroInfo *minfo = nullptr) override;
     bool hasEmitKeyboard(clang::CXXMemberCallExpr *) const;
     std::vector<clang::SourceLocation> m_emitLocations;
-    mutable std::unordered_map<unsigned, clang::SourceLocation> m_locationCache;
 };
 
 #endif

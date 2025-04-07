@@ -25,8 +25,6 @@
 #include <unordered_map>
 #include <utility>
 
-class ClazyContext;
-
 using namespace clang;
 
 DetachingTemporary::DetachingTemporary(const std::string &name, ClazyContext *context)
@@ -136,7 +134,7 @@ void DetachingTemporary::VisitStmt(clang::Stmt *stm)
     }
 
     // Check if it's one of the implicit shared classes
-    CXXRecordDecl *classDecl = detachingMethod->getParent();
+    const CXXRecordDecl *classDecl = detachingMethod->getParent();
     StringRef className = clazy::name(classDecl);
 
     const std::unordered_map<std::string, std::vector<StringRef>> &methodsByType = clazy::detachingMethods();
@@ -163,7 +161,7 @@ void DetachingTemporary::VisitStmt(clang::Stmt *stm)
 
     if (isReadFunction || isWriteFunction) {
         bool returnTypeIsIterator = false;
-        CXXRecordDecl *returnRecord = detachingMethodReturnType->getAsCXXRecordDecl();
+        const CXXRecordDecl *returnRecord = detachingMethodReturnType->getAsCXXRecordDecl();
         if (returnRecord) {
             returnTypeIsIterator = clazy::name(returnRecord) == "iterator";
         }
@@ -186,7 +184,7 @@ bool DetachingTemporary::isDetachingMethod(CXXMethodDecl *method) const
         return false;
     }
 
-    CXXRecordDecl *record = method->getParent();
+    const CXXRecordDecl *record = method->getParent();
     if (!record) {
         return false;
     }

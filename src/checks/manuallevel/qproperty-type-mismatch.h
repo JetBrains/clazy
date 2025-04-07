@@ -15,12 +15,10 @@
 #include <unordered_map>
 #include <vector>
 
-class ClazyContext;
 namespace clang
 {
 class CXXMethodDecl;
 class FieldDecl;
-class Decl;
 class MacroInfo;
 class Token;
 class TypeAliasDecl;

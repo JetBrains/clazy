@@ -11,13 +11,13 @@
 #include "StringUtils.h"
 #include "Utils.h"
 #include "clazy_stl.h"
-#include "clang/Basic/Diagnostic.h"
 
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/Expr.h>
 #include <clang/AST/ExprCXX.h>
 #include <clang/AST/Stmt.h>
+#include <clang/Basic/Diagnostic.h>
 #include <clang/Basic/LLVM.h>
 #include <clang/Basic/SourceLocation.h>
 #include <clang/Lex/Lexer.h>
@@ -25,8 +25,6 @@
 #include <llvm/Support/Casting.h>
 
 #include <vector>
-
-class ClazyContext;
 
 using namespace clang;
 
@@ -60,7 +58,7 @@ static CXXMethodDecl *isArgMethod(FunctionDecl *func, const char *className)
         return nullptr;
     }
 
-    CXXRecordDecl *record = method->getParent();
+    const CXXRecordDecl *record = method->getParent();
     if (!record || clazy::name(record) != className) {
         return nullptr;
     }
@@ -85,7 +83,7 @@ static bool isArgFuncWithOnlyQString(CallExpr *callExpr)
     }
 
     ParmVarDecl *firstParam = method->getParamDecl(0);
-    if (clazy::classNameFor(firstParam) != "QString") {
+    if (clazy::classNameFor(firstParam) != "QString" && !clazy::startsWith(firstParam->getType().getAsString(), "const char &")) {
         return false;
     }
 
@@ -169,7 +167,7 @@ void QStringArg::checkForMultiArgOpportunities(CXXMemberCallExpr *memberCall)
 
 bool QStringArg::checkQLatin1StringCase(CXXMemberCallExpr *memberCall)
 {
-    PreProcessorVisitor *preProcessorVisitor = m_context->preprocessorVisitor;
+    const PreProcessorVisitor *preProcessorVisitor = m_context->preprocessorVisitor;
     if (!preProcessorVisitor || preProcessorVisitor->qtVersion() < 51400) {
         // QLatin1String::arg() was introduced in Qt 5.14
         return false;
@@ -225,7 +223,7 @@ void QStringArg::VisitStmt(clang::Stmt *stmt)
             return;
         }
 
-        ParmVarDecl *p = method->getParamDecl(2);
+        const ParmVarDecl *p = method->getParamDecl(2);
         if (p && clazy::name(p) == "base") {
             // User went through the trouble specifying a base, lets allow it if it's a literal.
             std::vector<IntegerLiteral *> literals;

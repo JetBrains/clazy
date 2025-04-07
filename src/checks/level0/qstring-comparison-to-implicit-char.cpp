@@ -27,13 +27,13 @@ void QStringComparisonToImplicitChar::VisitStmt(clang::Stmt *stmt)
     }
 
     Expr *arg1 = callExpr->getArg(1);
-    auto *il = clazy::getFirstChildOfType2<IntegerLiteral>(arg1);
+    const auto *il = clazy::getFirstChildOfType2<IntegerLiteral>(arg1);
     if (!il) {
         return;
     }
 
     auto *functionDecl = dyn_cast<FunctionDecl>(callExpr->getCalleeDecl());
-    if (!functionDecl || functionDecl->getQualifiedNameAsString() != "operator==") {
+    if (!functionDecl || functionDecl->getOverloadedOperator() != clang::OO_EqualEqual) {
         return;
     }
 

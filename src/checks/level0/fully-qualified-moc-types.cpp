@@ -26,12 +26,6 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 
-namespace clang
-{
-class Decl;
-class MacroInfo;
-} // namespace clang
-
 using namespace clang;
 
 FullyQualifiedMocTypes::FullyQualifiedMocTypes(const std::string &name, ClazyContext *context)
@@ -48,7 +42,7 @@ void FullyQualifiedMocTypes::VisitDecl(clang::Decl *decl)
         return;
     }
 
-    AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
+    const AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
     if (!accessSpecifierManager) {
         return;
     }
@@ -132,7 +126,11 @@ static std::string resolveTemplateType(const clang::TemplateSpecializationType *
             str += ", ";
         }
         firstArg = false;
-        str += getQualifiedNameOfType(arg.getAsType().getTypePtr(), lo);
+        QualType argType = arg.getAsType();
+        if (argType.isConstQualified()) {
+            str += "const ";
+        }
+        str += getQualifiedNameOfType(argType.getTypePtr(), lo);
     }
     str += ">";
     return str;

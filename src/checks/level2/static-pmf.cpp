@@ -13,12 +13,6 @@
 #include <clang/Basic/LLVM.h>
 #include <llvm/Support/Casting.h>
 
-class ClazyContext;
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 StaticPmf::StaticPmf(const std::string &name, ClazyContext *context)

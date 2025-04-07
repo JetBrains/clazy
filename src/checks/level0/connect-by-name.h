@@ -11,12 +11,6 @@
 
 #include <string>
 
-class ClazyContext;
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 /**
  * See README-connect-by-name.md for more info.
  */

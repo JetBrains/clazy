@@ -16,11 +16,6 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 OverriddenSignal::OverriddenSignal(const std::string &name, ClazyContext *context)
@@ -31,7 +26,7 @@ OverriddenSignal::OverriddenSignal(const std::string &name, ClazyContext *contex
 
 void OverriddenSignal::VisitDecl(clang::Decl *decl)
 {
-    AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
+    const AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
     auto *method = dyn_cast<CXXMethodDecl>(decl);
     if (!accessSpecifierManager || !method) {
         return;

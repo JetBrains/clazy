@@ -23,8 +23,6 @@
 #include <ctype.h>
 #include <vector>
 
-class ClazyContext;
-
 using namespace clang;
 
 QVariantTemplateInstantiation::QVariantTemplateInstantiation(const std::string &name, ClazyContext *context)
@@ -91,7 +89,7 @@ void QVariantTemplateInstantiation::VisitStmt(clang::Stmt *stm)
     if (t->isBooleanType() || t->isFloatingType() || (t->isIntegerType() && !t->isEnumeralType())) {
         matches = true;
     } else {
-        CXXRecordDecl *recordDecl = t->getAsCXXRecordDecl();
+        const CXXRecordDecl *recordDecl = t->getAsCXXRecordDecl();
         matches = recordDecl && t->isClassType() && isMatchingClass(clazy::name(recordDecl));
     }
 

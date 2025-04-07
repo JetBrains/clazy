@@ -15,11 +15,6 @@
 
 #include <vector>
 
-namespace clang
-{
-class Decl;
-} // namespace clang
-
 using namespace clang;
 
 ConnectByName::ConnectByName(const std::string &name, ClazyContext *context)
@@ -35,7 +30,7 @@ void ConnectByName::VisitDecl(clang::Decl *decl)
         return;
     }
 
-    AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
+    const AccessSpecifierManager *accessSpecifierManager = m_context->accessSpecifierManager;
     if (!accessSpecifierManager) {
         return;
     }
