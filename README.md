@@ -194,6 +194,12 @@ Alternatively, if you want to use clang directly, without the wrapper:
 
 On Windows it's similar, just inspect the contents of `clazy-cl.bat`.
 
+To use clazy from a preset in `CMakePresets.json` or `CMakeUserPresets.json`:
+
+    "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-Xclang -plugin-arg-clazy -Xclang export-fixes -Xclang -plugin-arg-clazy -Xclang  level0,detaching-temporary",
+        "CMAKE_CXX_COMPILER": "clazy"
+    }
 
 It's recommended that you disable pre-compiled headers and don't use ccache.
 
@@ -218,6 +224,7 @@ clazy runs all checks from level1 by default.
     - [ifndef-define-typo](docs/checks/README-ifndef-define-typo.md)
     - [isempty-vs-count](docs/checks/README-isempty-vs-count.md)
     - [jni-signatures](docs/checks/README-jni-signatures.md)
+    - [qbytearray-conversion-to-c-style](docs/checks/README-qbytearray-conversion-to-c-style.md)    (fix-qbytearray-conversion-to-c-style)
     - [qhash-with-char-pointer-key](docs/checks/README-qhash-with-char-pointer-key.md)
     - [qproperty-type-mismatch](docs/checks/README-qproperty-type-mismatch.md)
     - [qrequiredresult-candidates](docs/checks/README-qrequiredresult-candidates.md)
@@ -448,6 +455,9 @@ You can also suppress individual warnings by file or by line by inserting commen
 
 - To disable specific checks in specific source lines, insert a comment in the same line as the warning:
 `(...) // clazy:exclude=check1,check2`
+
+- To disable specific checks in source files for the following line, insert a comment:
+`// clazy:exclude=check1,check2`
 
 Don't include the `clazy-` prefix. If, for example, you want to disable qstring-allocations you would write:
 `// clazy:exclude=qstring-allocations` not `clazy-qstring-allocations`.

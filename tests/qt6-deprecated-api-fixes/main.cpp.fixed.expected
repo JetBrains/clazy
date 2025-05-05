@@ -45,11 +45,11 @@ void test()
 
     my_Class* test_class_bis = new my_Class;
     test_class_bis->m_dir.setPath(("name"));
-
     test_class.m_dir_bis->setPath("name");
 
     QDir dir2;
     dir2.setPath(MYSTRING);
+    dir2 = dir;
 
     QDir dir3;
     dir3.setPath("my" "Stuff");
@@ -80,7 +80,7 @@ void test()
     m.unite(mm);
 
     QProcess pp;
-    pp.startCommand("stringContainingACommandWithArguments");
+    pp.start("stringContainingACommandWithArguments");
     pp.execute("stringContainingACommandWithArguments");
     pp.startDetached("stringContainingACommandWithArguments");
 

@@ -15,7 +15,7 @@ include(GNUInstallDirs)
 
 # Version setup
 set(CLAZY_VERSION_MAJOR "1")
-set(CLAZY_VERSION_MINOR "13")
+set(CLAZY_VERSION_MINOR "14")
 set(CLAZY_VERSION_PATCH "0")
 set(CLAZY_VERSION "${CLAZY_VERSION_MAJOR}.${CLAZY_VERSION_MINOR}.${CLAZY_VERSION_PATCH}")
 set(CLAZY_PRINT_VERSION "${CLAZY_VERSION_MAJOR}.${CLAZY_VERSION_MINOR}")
@@ -72,16 +72,6 @@ endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CXX_STANDARD_REQUIRED ON)
-
-# Look for std::regex support
-if(NOT DEFINED REGEX_RUN_RESULT)
-  message("Looking for std::regex support...")
-  try_compile(REGEX_RUN_RESULT ${CMAKE_CURRENT_BINARY_DIR} SOURCES ${CMAKE_CURRENT_LIST_DIR}/.cmake_has_regex_test.cpp)
-endif()
-
-if(NOT DEFINED REGEX_RUN_RESULT)
-  message(FATAL_ERROR "std::regex support is mandatory")
-endif()
 
 # Compiler might support c++17 but not have std::filesystem in the standard library
 if (NOT FILESYSTEM_RUN_RESULT)

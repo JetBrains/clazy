@@ -166,20 +166,6 @@ bool replacementForQComboBox(clang::MemberExpr *membExpr, const std::string &fun
     return true;
 }
 
-static std::set<std::string> qProcessDeprecatedFunctions = {"start"};
-
-void replacementForQProcess(const std::string &functionName, std::string &message, std::string &replacement)
-{
-    message = "call function QProcess::";
-    message += functionName;
-    message += "(). Use function QProcess::";
-    message += functionName;
-    message += "Command() instead";
-
-    replacement = functionName;
-    replacement += "Command";
-}
-
 void replacementForQSignalMapper(clang::MemberExpr *membExpr, std::string &message, std::string &replacement, clang::LangOptions lo)
 {
     auto *declfunc = membExpr->getReferencedDeclOfCallee()->getAsFunction();
@@ -363,9 +349,6 @@ void Qt6DeprecatedAPIFixes::VisitDecl(clang::Decl *decl)
         bool isQtNamespaceExplicit = false;
         DeclContext *newcontext = clazy::contextForDecl(m_context->lastDecl);
         while (newcontext) {
-            if (!newcontext) {
-                break;
-            }
             if (clang::isa<NamespaceDecl>(newcontext)) {
                 auto *namesdecl = dyn_cast<clang::NamespaceDecl>(newcontext);
                 if (namesdecl->getNameAsString() == "Qt") {
@@ -414,9 +397,10 @@ Qt6DeprecatedAPIFixes::buildReplacementForQVariant(DeclRefExpr *decl_operator, c
     return replacement;
 }
 
-bool foundQDirDeprecatedOperator(DeclRefExpr *decl)
+bool foundQDirDeprecatedOperator(DeclRefExpr *decl, const clang::LangOptions &lo)
 {
-    return decl->getNameInfo().getAsString() == "operator=";
+    auto *method_decl = dyn_cast<CXXMethodDecl>(decl->getDecl());
+    return method_decl && (method_decl->getOverloadedOperator() == OO_Equal) && (clazy::simpleArgTypeName(method_decl, 0, lo) == "QString");
 }
 
 static std::set<std::string> qVariantDeprecatedOperator = {"operator<", "operator<=", "operator>", "operator>="};
@@ -445,7 +429,7 @@ void Qt6DeprecatedAPIFixes::fixForDeprecatedOperator(Stmt *stmt, const std::stri
         }
 
         if (className == "QDir") {
-            foundOperator = foundQDirDeprecatedOperator(decl);
+            foundOperator = foundQDirDeprecatedOperator(decl, lo());
         } else if (className == "QVariant") {
             foundOperator = foundQVariantDeprecatedOperator(decl);
         }
@@ -674,9 +658,6 @@ void Qt6DeprecatedAPIFixes::VisitStmt(clang::Stmt *stmt)
         bool isQtNamespaceExplicit = false;
         DeclContext *newcontext = clazy::contextForDecl(m_context->lastDecl);
         while (newcontext) {
-            if (!newcontext) {
-                break;
-            }
             if (clang::isa<NamespaceDecl>(newcontext)) {
                 auto *namesdecl = dyn_cast<clang::NamespaceDecl>(newcontext);
                 if (namesdecl->getNameAsString() == "Qt") {
@@ -774,8 +755,6 @@ void Qt6DeprecatedAPIFixes::VisitStmt(clang::Stmt *stmt)
             fixits.push_back(FixItHint::CreateReplacement(fixitRange, replacement));
             emitWarning(warningLocation, message, fixits);
             return;
-        } else if (clazy::startsWith(className, "QProcess") && qProcessDeprecatedFunctions.find(functionName) != qProcessDeprecatedFunctions.end()) {
-            replacementForQProcess(functionName, message, replacement);
         } else if (clazy::startsWith(className, "QResource") && functionName == "isCompressed") {
             replacementForQResource(functionName, message, replacement);
         } else if (clazy::startsWith(className, "QSignalMapper") && functionName == "mapped") {

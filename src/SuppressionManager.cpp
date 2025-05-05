@@ -1,5 +1,6 @@
 /*
     SPDX-FileCopyrightText: 2016 Sergio Martins <smartins@kde.org>
+    SPDX-FileCopyrightText: 2025 Alexander Lohnau <alexander.lohnau@gmx.de>
 
     SPDX-License-Identifier: LGPL-2.0-or-later
 */
@@ -39,13 +40,12 @@ bool SuppressionManager::isSuppressed(const std::string &checkName,
     }
 
     auto it = m_processedFileIDs.find(fileID.getHashValue());
-    const bool notProcessedYet = (it == m_processedFileIDs.cend());
-    if (notProcessedYet) {
+    if (it == m_processedFileIDs.cend()) {
         parseFile(fileID, sm, lo);
         it = m_processedFileIDs.find(fileID.getHashValue());
     }
 
-    Suppressions &suppressions = (*it).second;
+    Suppressions &suppressions = it->second;
 
     // Case 1: clazy:skip, the whole file is skipped, regardless of which check
     if (suppressions.skipEntireFile) {
@@ -87,45 +87,50 @@ void SuppressionManager::parseFile(FileID id, const SourceManager &sm, const cla
 
     Token token;
     while (!lexer.LexFromRawLexer(token)) {
-        if (token.getKind() == tok::comment) {
-            std::string comment = Lexer::getSpelling(token, sm, lo);
+        if (token.getKind() != tok::comment) {
+            continue;
+        }
 
-            if (clazy::contains(comment, "clazy:skip")) {
-                suppressions.skipEntireFile = true;
-                return;
+        const int lineNumber = sm.getSpellingLineNumber(token.getLocation());
+        const std::string comment = Lexer::getSpelling(token, sm, lo);
+        if (lineNumber < 0) {
+            llvm::errs() << "SuppressionManager::parseFile: Invalid line number " << lineNumber << "\n";
+            continue;
+        }
+
+        if (clazy::contains(comment, "NOLINTNEXTLINE")) {
+            suppressions.skipNextLine.insert(lineNumber + 1);
+        }
+
+        const auto startIdx = comment.find("clazy:");
+        if (startIdx == std::string::npos) {
+            continue; // Early return, no need to look at any regex
+        }
+
+        if (clazy::contains(comment, "clazy:skip")) {
+            suppressions.skipEntireFile = true;
+            return;
+        }
+
+        static const std::regex rx_all("clazy:excludeall=([^\\s]+)");
+        static const std::regex rx_current("clazy:exclude=([^\\s]+)");
+        static const std::regex rx_next("clazy:exclude-next-line=([^\\s]+)");
+
+        const auto startIt = comment.begin() + startIdx;
+        const auto endIt = comment.end();
+        std::smatch match;
+        if (std::regex_search(startIt, endIt, match, rx_all)) {
+            std::vector<std::string> checks = clazy::splitString(match[1], ',');
+            suppressions.checksToSkip.insert(checks.cbegin(), checks.cend());
+        } else if (std::regex_search(startIt, endIt, match, rx_current)) {
+            std::vector<std::string> checks = clazy::splitString(match[1], ',');
+            for (const std::string &checkName : checks) {
+                suppressions.checksToSkipByLine.insert(LineAndCheckName(lineNumber, checkName));
             }
-
-            if (clazy::contains(comment, "NOLINTNEXTLINE")) {
-                bool invalid = false;
-                const int nextLineNumber = sm.getSpellingLineNumber(token.getLocation(), &invalid) + 1;
-                if (invalid) {
-                    llvm::errs() << "SuppressionManager::parseFile: Invalid line number for token location where NOLINTNEXTLINE was found\n";
-                    continue;
-                }
-
-                suppressions.skipNextLine.insert(nextLineNumber);
-            }
-
-            static std::regex rx(R"(clazy:excludeall=(.*?)(\s|$))");
-            std::smatch match;
-            if (regex_search(comment, match, rx) && match.size() > 1) {
-                std::vector<std::string> checks = clazy::splitString(match[1], ',');
-                suppressions.checksToSkip.insert(checks.cbegin(), checks.cend());
-            }
-
-            const int lineNumber = sm.getSpellingLineNumber(token.getLocation());
-            if (lineNumber < 0) {
-                llvm::errs() << "SuppressionManager::parseFile: Invalid line number " << lineNumber << "\n";
-                continue;
-            }
-
-            static std::regex rx2(R"(clazy:exclude=(.*?)(\s|$))");
-            if (regex_search(comment, match, rx2) && match.size() > 1) {
-                std::vector<std::string> checks = clazy::splitString(match[1], ',');
-
-                for (const std::string &checkName : checks) {
-                    suppressions.checksToSkipByLine.insert(LineAndCheckName(lineNumber, checkName));
-                }
+        } else if (std::regex_search(startIt, endIt, match, rx_next)) {
+            std::vector<std::string> checks = clazy::splitString(match[1], ',');
+            for (const std::string &checkName : checks) {
+                suppressions.checksToSkipByLine.insert(LineAndCheckName(lineNumber + 1, checkName));
             }
         }
     }
