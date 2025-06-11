@@ -206,6 +206,15 @@ QtAccessSpecifierType AccessSpecifierManager::qtAccessSpecifierType(const CXXMet
         return QtAccessSpecifier_Unknown;
     }
 
+    if (clion::isJetbrainsModeOn()) {
+        for (const auto *I : method->specific_attrs<AnnotateAttr>()) {
+            if (I->getAnnotation() == "signal_from_qt")
+                return QtAccessSpecifier_Signal;
+            if (I->getAnnotation() == "slot_from_qt")
+                return QtAccessSpecifier_Slot;
+        }
+    }
+
     // We want the declaration that's inside class {}, not the ones that are also a method definition
     // and possibly outside the class
     method = method->getCanonicalDecl();

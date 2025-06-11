@@ -301,11 +301,13 @@ bool OldStyleConnect::isSignalOrSlot(SourceLocation loc, std::string &macroName)
     }
 
     macroName = static_cast<std::string>(Lexer::getImmediateMacroName(loc, sm(), lo()));
-    if (macroName == "#") {
-        Token Tok;
-        Lexer::getRawToken(loc, Tok, sm(), lo());
-        if (Tok.is(tok::raw_identifier))
-            macroName = Tok.getRawIdentifier().str();
+    if (clion::isJetbrainsModeOn()) {
+        if (macroName == "#") {
+            Token Tok;
+            Lexer::getRawToken(loc, Tok, sm(), lo());
+            if (Tok.is(tok::raw_identifier))
+                macroName = Tok.getRawIdentifier().str();
+        }
     }
     return macroName == "SIGNAL" || macroName == "SLOT";
 }
