@@ -93,10 +93,6 @@ inline std::string classNameFor(clang::QualType qt)
         return {};
     }
 
-    if (clang::ElaboratedType::classof(t)) {
-        return classNameFor(static_cast<const clang::ElaboratedType *>(t)->getNamedType());
-    }
-
     const clang::CXXRecordDecl *record = t->isRecordType() ? t->getAsCXXRecordDecl() : t->getPointeeCXXRecordDecl();
     return classNameFor(record);
 }
@@ -254,10 +250,6 @@ inline std::string simpleTypeName(clang::QualType qt, const clang::LangOptions &
     const auto *t = qt.getTypePtrOrNull();
     if (!t) {
         return {};
-    }
-
-    if (clang::ElaboratedType::classof(t)) {
-        qt = static_cast<const clang::ElaboratedType *>(t)->getNamedType();
     }
 
     return qt.getNonReferenceType().getUnqualifiedType().getAsString(clang::PrintingPolicy(lo));
