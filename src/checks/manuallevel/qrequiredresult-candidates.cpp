@@ -21,7 +21,7 @@ static bool hasUnusedResultAttr(clang::FunctionDecl *func)
             return R != nullptr;
         }
     } else if (const auto *ET = RetType->getAs<clang::EnumType>()) {
-        if (const clang::EnumDecl *ED = ET->getOriginalDecl()) {
+        if (const clang::EnumDecl *ED = ET->getDecl()) {
             if (const auto *R = ED->getAttr<clang::WarnUnusedResultAttr>()) {
                 return R != nullptr;
             }

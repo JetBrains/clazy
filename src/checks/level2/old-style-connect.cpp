@@ -60,7 +60,7 @@ const CXXRecordDecl *getBestDynamicClassType(Expr *expr)
     }
 
     const RecordType *Ty = DerivedType->castAs<RecordType>();
-    Decl *D = Ty->getOriginalDecl();
+    Decl *D = Ty->getDecl();
     return cast<CXXRecordDecl>(D);
 }
 }
